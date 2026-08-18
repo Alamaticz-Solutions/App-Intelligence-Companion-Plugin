@@ -1,0 +1,33 @@
+{
+  "version": "1.0",
+  "skills": [
+    {
+      "name": "app-owlm-docs-status",
+      "description": "Where to find/generate OWLM's fuller documentation -- status of the full pega-doc-generator KT-style pass, which has not yet been run for OWLM.",
+      "path": "OWLM/app-owlm-docs-status.md",
+      "category": "knowledge",
+      "prompt": false
+    },
+    {
+      "name": "app-owlm-known-defects",
+      "description": "Known, currently-unfixed live defects found in OWLM rules during code review / impact analysis passes -- check before diagnosing a related symptom.",
+      "path": "OWLM/app-owlm-known-defects.md",
+      "category": "knowledge",
+      "prompt": false
+    },
+    {
+      "name": "app-owlm-naming-traps",
+      "description": "Confirmed name-collision and app-attribution traps for OWLM -- cases where a rule/case-type name looks like it belongs to OWLM but doesn't, or vice versa.",
+      "path": "OWLM/app-owlm-naming-traps.md",
+      "category": "knowledge",
+      "prompt": false
+    },
+    {
+      "name": "app-owlm-shared-data-model",
+      "description": "Cross-app data/ruleset sharing specific to OWLM -- where a change in OWLM can have blast radius in a sibling app even though the rule itself lives in OWLM's own ruleset.",
+      "path": "OWLM/app-owlm-shared-data-model.md",
+      "category": "knowledge",
+      "prompt": false
+    }
+  ]
+}

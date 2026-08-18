@@ -1,0 +1,519 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pega FlowAction/CaseType Migration Work-Item Manifest Schema",
+  "type": "object",
+  "required": [
+    "rootRule",
+    "targetPlatform",
+    "sourceBackend",
+    "writeBackend",
+    "uiSourcing",
+    "dependencyTree",
+    "rules",
+    "fields",
+    "actionChains",
+    "conditions",
+    "listSources",
+    "step8",
+    "patternTally",
+    "workItems",
+    "needsReview",
+    "completeness"
+  ],
+  "properties": {
+    "rootRule": {
+      "type": "object",
+      "required": ["name", "type", "class", "pzinskey", "environment"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["Rule-Obj-FlowAction", "Rule-Obj-CaseType"] },
+        "class": { "type": "string" },
+        "pzinskey": { "type": "string" },
+        "environment": { "type": "string" }
+      }
+    },
+    "targetPlatform": {
+      "type": "object",
+      "required": ["product", "versionLine", "capabilityChecks"],
+      "properties": {
+        "product": { "type": "string" },
+        "versionLine": { "type": "string" },
+        "capabilityChecks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["claim", "source", "checkedOn"],
+            "properties": {
+              "claim": { "type": "string" },
+              "source": { "type": "string" },
+              "checkedOn": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "sourceBackend": {
+      "type": "object",
+      "required": ["system", "environment"],
+      "properties": {
+        "system": { "type": "string" },
+        "environment": { "type": "string" }
+      }
+    },
+    "writeBackend": {
+      "type": "object",
+      "required": ["system", "application", "sameInstanceAsSource"],
+      "properties": {
+        "system": { "type": "string" },
+        "application": { "type": "string" },
+        "sameInstanceAsSource": { "type": "boolean" },
+        "note": { "type": "string" }
+      }
+    },
+    "uiSourcing": {
+      "type": "string",
+      "enum": ["pySectionReference", "pyViewReference", "inlineDesignTemplate"]
+    },
+    "dependencyTree": {
+      "type": "object",
+      "required": ["name", "type", "class", "children", "status"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "class": { "type": "string" },
+        "children": { "type": "array", "items": { "type": "object" } },
+        "status": { "type": "string", "enum": ["done", "unresolved", "pending", "in-progress"] }
+      }
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "type", "class", "pzinskey", "summary", "patternHits", "effort", "provisionalOrFinal"],
+        "properties": {
+          "name": { "type": "string" },
+          "type": { "type": "string" },
+          "class": { "type": "string" },
+          "pzinskey": { "type": "string" },
+          "summary": { "type": "string" },
+          "patternHits": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["pattern", "evidence", "location"],
+              "properties": {
+                "pattern": { "type": "string" },
+                "evidence": { "type": "string" },
+                "location": { "type": "string" }
+              }
+            }
+          },
+          "classification": {
+            "type": "string",
+            "enum": [
+              "SUPPORTED_AS_IS",
+              "SUPPORTED_WITH_RECONFIGURATION",
+              "SUPPORTED_WITH_DATA_MODEL_CHANGE",
+              "SUPPORTED_WITH_PROCESS_REDESIGN",
+              "REQUIRES_CUSTOM_DX_COMPONENT",
+              "NOT_SUPPORTED_REMOVE_OR_REPLACE",
+              "UNKNOWN_REQUIRES_DEPENDENCY_ANALYSIS"
+            ]
+          },
+          "constellationDestination": {
+            "type": "string",
+            "enum": ["dataPageLoad", "calculatedField", "assignmentSubmit", "processStep", "validation", "remove"]
+          },
+          "effort": { "type": "string", "enum": ["Low", "Medium", "High"] },
+          "precedent": {
+            "type": "object",
+            "properties": {
+              "app": { "type": "string" },
+              "rule": { "type": "string" },
+              "note": { "type": "string" }
+            }
+          },
+          "provisionalOrFinal": { "type": "string", "enum": ["Provisional", "Final"] }
+        }
+      }
+    },
+    "fields": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "property_path",
+          "leaf",
+          "context_class",
+          "controls",
+          "list_sourced",
+          "decision",
+          "appwide_pattern",
+          "verify_flags",
+          "constellation_config",
+          "property_rule"
+        ],
+        "properties": {
+          "property_path": { "type": "string" },
+          "leaf": { "type": "string" },
+          "context_class": { "type": "string" },
+          "controls": { "type": "array", "items": { "type": "string" } },
+          "list_sourced": { "type": "boolean" },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "REUSE_AS_IS",
+              "REUSE_ADD_FIELD_SOURCE",
+              "CONSOLIDATE",
+              "CREATE_NEW",
+              "NEEDS_REVIEW"
+            ]
+          },
+          "appwide_pattern": {
+            "type": ["string", "null"],
+            "enum": [
+              "NO_CELL_SOURCE",
+              "NO_CONFLICT",
+              "PARAM_VARIANCE",
+              "SOURCE_VARIANCE",
+              null
+            ]
+          },
+          "verify_flags": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["code", "detail", "why"],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "SOURCE_VARIANCE_WITHIN_SECTION",
+                    "CELL_LEVEL_SOURCE_NEEDS_APPWIDE",
+                    "LIST_CONTROL_NO_SOURCE",
+                    "MULTI_SOURCE_IN_CELL",
+                    "UNKNOWN_SOURCE_KIND",
+                    "PROPERTY_RULE_NOT_READ",
+                    "ASSOCIATED_SOURCE_UNVERIFIED",
+                    "CUSTOM_SECTION_UNPARSEABLE",
+                    "DELEGATED_TO_INCLUDED_SECTION",
+                    "NON_ANCHORED_BINDING",
+                    "CONSOLIDATE_OR_SPLIT",
+                    "NON_STANDARD_CONTROL"
+                  ]
+                },
+                "detail": { "type": "string" },
+                "why": { "type": "string" }
+              }
+            }
+          },
+          "constellation_config": {
+            "type": "object",
+            "required": ["field_type_hint", "control", "source"],
+            "properties": {
+              "field_type_hint": { "type": "string" },
+              "control": { "type": "string" },
+              "source": { "type": ["string", "null"] }
+            }
+          },
+          "property_rule": {
+            "type": "object",
+            "required": ["mode", "type", "property_source_type", "property_source_name"],
+            "properties": {
+              "mode": { "type": "string" },
+              "type": { "type": "string" },
+              "property_source_type": { "type": ["string", "null"] },
+              "property_source_name": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    },
+    "actionChains": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "section",
+          "control",
+          "boundProperty",
+          "triggers",
+          "chain",
+          "businessBehaviour",
+          "treatment",
+          "patternHits",
+          "classification"
+        ],
+        "properties": {
+          "section": { "type": "string" },
+          "control": { "type": "string" },
+          "boundProperty": { "type": "string" },
+          "triggers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["event"],
+              "properties": {
+                "event": { "type": "string" },
+                "keyCode": { "type": ["string", "null"] }
+              }
+            }
+          },
+          "chain": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["action"],
+              "properties": {
+                "action": { "type": "string" },
+                "target": { "type": ["string", "null"] },
+                "targetSection": { "type": ["string", "null"] },
+                "dataTransform": { "type": ["string", "null"] },
+                "activity": { "type": ["string", "null"] },
+                "conditions": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          },
+          "businessBehaviour": { "type": "string" },
+          "treatment": { "type": "string" },
+          "patternHits": { "type": "array", "items": { "type": "string" } },
+          "classification": {
+            "type": "string",
+            "enum": [
+              "SUPPORTED_AS_IS",
+              "SUPPORTED_WITH_RECONFIGURATION",
+              "SUPPORTED_WITH_DATA_MODEL_CHANGE",
+              "SUPPORTED_WITH_PROCESS_REDESIGN",
+              "REQUIRES_CUSTOM_DX_COMPONENT",
+              "NOT_SUPPORTED_REMOVE_OR_REPLACE",
+              "UNKNOWN_REQUIRES_DEPENDENCY_ANALYSIS"
+            ]
+          }
+        }
+      }
+    },
+    "conditions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "negatedUse",
+          "usedFor",
+          "usedIn",
+          "logicSummary",
+          "taxonomy",
+          "classification",
+          "action"
+        ],
+        "properties": {
+          "name": { "type": "string" },
+          "negatedUse": { "type": "boolean" },
+          "usedFor": { "type": "array", "items": { "type": "string" } },
+          "usedIn": { "type": "array", "items": { "type": "string" } },
+          "logicSummary": { "type": "string" },
+          "taxonomy": {
+            "type": "string",
+            "enum": [
+              "CASE_DATA",
+              "DATA_PAGE_DEPENDENT",
+              "PAGE_EXISTENCE",
+              "UI_CONTEXT",
+              "REQUESTOR_OR_THREAD",
+              "FUNCTION_BASED",
+              "ACTIVITY_DEPENDENT"
+            ]
+          },
+          "classification": {
+            "type": "string",
+            "enum": [
+              "SUPPORTED_AS_IS",
+              "SUPPORTED_WITH_RECONFIGURATION",
+              "SUPPORTED_WITH_DATA_MODEL_CHANGE",
+              "SUPPORTED_WITH_PROCESS_REDESIGN",
+              "REQUIRES_CUSTOM_DX_COMPONENT",
+              "NOT_SUPPORTED_REMOVE_OR_REPLACE",
+              "UNKNOWN_REQUIRES_DEPENDENCY_ANALYSIS"
+            ]
+          },
+          "action": { "type": "string" }
+        }
+      }
+    },
+    "listSources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "section",
+          "control",
+          "source",
+          "valueProperty",
+          "displayProperty",
+          "searchColumns",
+          "copies"
+        ],
+        "properties": {
+          "section": { "type": "string" },
+          "control": { "type": "string" },
+          "source": {
+            "type": "object",
+            "required": ["type", "name", "params"],
+            "properties": {
+              "type": { "type": "string" },
+              "name": { "type": "string" },
+              "params": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "valueProperty": { "type": "string" },
+          "displayProperty": { "type": "string" },
+          "searchColumns": { "type": "array", "items": { "type": "string" } },
+          "copies": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["from", "to", "hidden"],
+              "properties": {
+                "from": { "type": "string" },
+                "to": { "type": "string" },
+                "hidden": { "type": "boolean" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "step8": {
+      "type": "object",
+      "required": [
+        "8a_data_pages",
+        "8b_report_definitions",
+        "8c_rule_manifest",
+        "8d_page_value_groups",
+        "8e_picklist_radio"
+      ],
+      "properties": {
+        "8a_data_pages": {
+          "type": "object",
+          "required": ["count", "data_pages", "required_change"],
+          "properties": {
+            "count": { "type": "integer" },
+            "data_pages": { "type": "array", "items": { "type": "string" } },
+            "required_change": { "type": "string" }
+          }
+        },
+        "8b_report_definitions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "flatten", "reasons"],
+            "properties": {
+              "name": { "type": "string" },
+              "flatten": { "type": "boolean" },
+              "reasons": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "8c_rule_manifest": { "type": "object" },
+        "8d_page_value_groups": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["leaf", "mode", "action"],
+            "properties": {
+              "leaf": { "type": "string" },
+              "mode": { "type": "string" },
+              "action": { "type": "string" }
+            }
+          }
+        },
+        "8e_picklist_radio": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["leaf", "decision", "verdict"],
+            "properties": {
+              "leaf": { "type": "string" },
+              "decision": { "type": "string" },
+              "verdict": { "type": "string", "enum": ["reusable", "redesign-source"] }
+            }
+          }
+        }
+      }
+    },
+    "patternTally": {
+      "type": "object",
+      "additionalProperties": { "type": "integer" }
+    },
+    "workItems": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "targetRule", "operation", "behaviorContract", "dependsOn"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "targetRule": {
+            "type": "object",
+            "required": ["type", "class", "name"],
+            "properties": {
+              "type": { "type": "string" },
+              "class": { "type": "string" },
+              "name": { "type": "string" }
+            }
+          },
+          "operation": {
+            "type": "string",
+            "enum": ["create", "copy-then-update", "update", "reuse-as-is", "manual"]
+          },
+          "authoringSkill": { "type": ["string", "null"] },
+          "methodologySkill": { "type": ["string", "null"] },
+          "sourceRule": {
+            "type": ["object", "null"],
+            "properties": {
+              "type": { "type": "string" },
+              "class": { "type": "string" },
+              "name": { "type": "string" }
+            }
+          },
+          "behaviorContract": { "type": "string" },
+          "authoringNotes": { "type": "array", "items": { "type": "string" } },
+          "dependsOn": { "type": "array", "items": { "type": "integer" } },
+          "patternHits": { "type": "array", "items": { "type": "string" } },
+          "manualReason": { "type": "string" }
+        },
+        "if": { "properties": { "operation": { "const": "manual" } } },
+        "then": { "required": ["manualReason"] },
+        "else": { "required": ["authoringSkill"] }
+      }
+    },
+    "needsReview": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["item", "blockingFact", "resolution"],
+        "properties": {
+          "item": { "type": "string" },
+          "blockingFact": { "type": "string" },
+          "resolution": { "type": "string" }
+        }
+      }
+    },
+    "completeness": {
+      "type": "object",
+      "required": [
+        "status",
+        "analysedRuleCount",
+        "unresolvedDependencyCount",
+        "missingRules",
+        "limitations"
+      ],
+      "properties": {
+        "status": { "type": "string", "enum": ["COMPLETE", "PARTIAL", "BLOCKED"] },
+        "analysedRuleCount": { "type": "integer" },
+        "unresolvedDependencyCount": { "type": "integer" },
+        "missingRules": { "type": "array", "items": { "type": "string" } },
+        "limitations": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

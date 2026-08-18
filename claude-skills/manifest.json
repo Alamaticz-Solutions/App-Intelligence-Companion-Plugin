@@ -1,0 +1,96 @@
+{
+  "version": "1.0",
+  "skills": [
+    {
+      "name": "pega-companion",
+      "description": "Entry point for any Pega Infinity graph/log/diagnostic question -- Neo4j-grounded impact analysis, code review, log RCA, per-app knowledge, Constellation migration. Read-only; every fix terminates in the Rule Authoring plugin's ChangeRequest workflow, never a direct write.",
+      "path": "pega-companion/SKILL.md",
+      "category": "entry",
+      "prompt": false
+    },
+    {
+      "name": "pega-companion-seam",
+      "description": "The Companion -- Rule Authoring seam -- orchestrates a proposed Pega change across the ChangeRequest lifecycle (intake -> authoring -> review -> complete), injecting a blast-radius/Impact Analysis report before human approval.",
+      "path": "pega-companion-seam/SKILL.md",
+      "category": "methodology",
+      "prompt": false
+    },
+    {
+      "name": "pega-impact-analysis",
+      "description": "Proactive enterprise-wide impact analysis for a proposed rule change -- what breaks, who's affected, what must be done -- BEFORE the change is made. 3-hop blast radius, deterministic risk rubric.",
+      "path": "pega-impact-analysis/SKILL.md",
+      "category": "diagnostics",
+      "prompt": false
+    },
+    {
+      "name": "pega-log-diagnosis",
+      "description": "Diagnoses a Pega production error end-to-end from a log excerpt/stack trace/class hash -- root cause, point of failure, technical blast radius, and business-process impact grounded in Feature nodes.",
+      "path": "pega-log-diagnosis/SKILL.md",
+      "category": "diagnostics",
+      "prompt": false
+    },
+    {
+      "name": "pega-code-review",
+      "description": "Formal pre-promotion code review for a Pega rule/branch -- mandatory graph investigation (G1-G4), PASS/WARN/FAIL verdict, per-rule-type defect checklists, schema-validated against the Rule Authoring plugin's JSON schemas.",
+      "path": "pega-code-review/SKILL.md",
+      "category": "diagnostics",
+      "prompt": false
+    },
+    {
+      "name": "pega-neo4j-cypher-querying",
+      "description": "Writes correct Cypher against the PDS Neo4j knowledge graph -- environment landmine, node/relationship schema, ref_category taxonomy, and a recipe library for blast radius, root-to-leaf tree, rule disambiguation, class hierarchy, ruleset stack.",
+      "path": "pega-neo4j-cypher-querying/SKILL.md",
+      "category": "graph",
+      "prompt": false
+    },
+    {
+      "name": "pega-feature-node-retrieval",
+      "description": "Answers business/functional questions about a Pega case type, queue processor, or job scheduler by retrieving its Feature node from Neo4j -- existence check first, token-cheap targeted reads, environment-filter landmine avoided.",
+      "path": "pega-feature-node-retrieval/SKILL.md",
+      "category": "graph",
+      "prompt": false
+    },
+    {
+      "name": "pega-live-gap-fill",
+      "description": "When the PDS Neo4j graph, cached summaries, or search results are stale, missing, or ambiguous mid-task, use the Rule Authoring plugin to fetch live truth directly from Pega instead of reporting a gap.",
+      "path": "pega-live-gap-fill/SKILL.md",
+      "category": "graph",
+      "prompt": false
+    },
+    {
+      "name": "pega-cross-environment",
+      "description": "Compares a rule across the multiple Pega environments PDS MCP's graph spans -- has a defect already been fixed elsewhere, does this rule differ between two environments (drift), what does a working version look like elsewhere. A capability the Rule Authoring plugin cannot offer -- it reaches only one instance.",
+      "path": "pega-cross-environment/SKILL.md",
+      "category": "graph",
+      "prompt": false
+    },
+    {
+      "name": "pds-pega-data-access",
+      "description": "Routing policy for live Pega lookups (rules, cases, branches, data pages) between PDS MCP and the Rule Authoring plugin -- scoped tri-state authority rule, not a blanket policy.",
+      "path": "pds-pega-data-access/SKILL.md",
+      "category": "methodology",
+      "prompt": false
+    },
+    {
+      "name": "pega-app-knowledge",
+      "description": "Per-application knowledge layer -- check first before re-deriving something already known, write back anything hard-won afterward, into the plugin's own bundled Knowledge/ folder so it ships to the whole team.",
+      "path": "pega-app-knowledge/SKILL.md",
+      "category": "methodology",
+      "prompt": false
+    },
+    {
+      "name": "pega-doc-generator",
+      "description": "Generates platform-agnostic and/or Pega Blueprint specification documents FROM an existing Pega application, via graph reverse-engineering, explicit-request only.",
+      "path": "pega-doc-generator/SKILL.md",
+      "category": "methodology",
+      "prompt": false
+    },
+    {
+      "name": "pega-flowaction-migration",
+      "description": "Analyzes Pega Flow Actions and Case Types for Constellation migration readiness. Resolves dependency chains via PDS MCP, bottom-up multi-agent analysis, outputs a Work-Item Manifest for the Rule Authoring plugin.",
+      "path": "pega-flowaction-migration/SKILL.md",
+      "category": "methodology",
+      "prompt": false
+    }
+  ]
+}

@@ -1,0 +1,132 @@
+{
+  "rootRule": {
+    "name": "ClinicianOfficeType",
+    "type": "Rule-Obj-FlowAction",
+    "class": "PDS-FW-HRLifeFW-Work-ContractRequest",
+    "pzinskey": "RULE-OBJ-FLOWACTION PDS-FW-HRLIFEFW-WORK-CONTRACTREQUEST CLINICIANOFFICETYPE #20241106T150608.411 GMT",
+    "environment": "HRLifeImp"
+  },
+  "targetPlatform": { "product": "Pega Infinity", "versionLine": "25.1", "capabilityChecks": [] },
+  "sourceBackend": { "system": "PDS MCP", "environment": "HRLifeImp" },
+  "writeBackend": { "system": "Pega Infinity Authoring Plugin", "application": "HRLifeImp",
+                     "sameInstanceAsSource": true, "note": "Confirmed at Phase 0 Step 2 via get-application." },
+  "uiSourcing": "pySectionReference",
+  "dependencyTree": {
+    "name": "ClinicianOfficeType", "type": "Rule-Obj-FlowAction", "class": "PDS-FW-HRLifeFW-Work-ContractRequest", "status": "done",
+    "children": [
+      { "name": "ClinicianOfficeType", "type": "Rule-HTML-Section", "class": "PDS-FW-HRLifeFW-Work-ContractRequest", "status": "done",
+        "children": [
+          { "name": "SetOfficeType", "type": "Rule-Obj-Model", "class": "PDS-FW-HRLifeFW-Work-ContractRequest", "status": "done (fetched via referenced_rules, not deep-analyzed this pass)" }
+        ]
+      }
+    ]
+  },
+  "rules": [
+    {
+      "name": "ClinicianOfficeType", "type": "Rule-HTML-Section", "class": "PDS-FW-HRLifeFW-Work-ContractRequest",
+      "pzinskey": "RULE-HTML-SECTION PDS-FW-HRLIFEFW-WORK-CONTRACTREQUEST CLINICIANOFFICETYPE #20241106T150603.167 GMT",
+      "summary": "Icon-tile selection UI: two icon controls (Dental/Medical images, Rule-File-Binary webwb Dental/Medical png) each wired pyEvent=click -> pyAction=runDataTransform invoking SetOfficeType. Bound property OfficeTypeOption (values literal \"Dental\"/\"Medical\"). No autocomplete, no grid, no data page.",
+      "patternHits": [
+        { "pattern": "#5", "evidence": "hardcoded pyCaption Field Values (pyCaption OfficeTypeOption, pyCaption PROVIDER SELECTION), zero @L/localization references", "location": "pxRuleReferences / cell pyLabelFieldValue" },
+        { "pattern": "E13", "evidence": "pyActionSets on both icon controls: pyEvents=[click] -> pyActions=[runDataTransform -> SetOfficeType]", "location": "pySections/pySectionBody/pyActionSets" },
+        { "pattern": "E15", "evidence": "selection mechanism is two clickable image icons (Rule-File-Binary), not a standard bound control (radio/checkbox/dropdown) -- custom, non-standard UI pattern for a binary choice", "location": "pxRuleReferences (webwb Dental/Medical png), pyFormat=pxIcon" }
+      ],
+      "classification": "SUPPORTED_WITH_PROCESS_REDESIGN",
+      "constellationDestination": null, "effort": "Low",
+      "precedent": null, "provisionalOrFinal": "Final"
+    },
+    {
+      "name": "SetOfficeType", "type": "Rule-Obj-Model", "class": "PDS-FW-HRLifeFW-Work-ContractRequest",
+      "pzinskey": "RULE-OBJ-MODEL PDS-FW-HRLIFEFW-WORK-CONTRACTREQUEST SETOFFICETYPE #20241106T150607.661 GMT",
+      "summary": "Data Transform invoked on icon click; not deep-fetched this pass (out of scope for a minimal validation run) -- referenced here as a discovered dependency needing its own Logic-Rule pass before this Flow Action's plan is Final.",
+      "patternHits": [], "classification": null, "constellationDestination": "assignmentSubmit (tentative, unverified)", "effort": "Low",
+      "precedent": null, "provisionalOrFinal": "Provisional"
+    }
+  ],
+  "fields": [
+    {
+      "property_path": ".OfficeTypeOption", "leaf": "OfficeTypeOption", "context_class": "PDS-FW-HRLifeFW-Work-ContractRequest",
+      "controls": ["pxIcon"], "list_sourced": false, "decision": "NEEDS_REVIEW", "appwide_pattern": null,
+      "verify_flags": [ { "code": "NON_STANDARD_CONTROL", "detail": "value set via icon click + runDataTransform, not a bound standard control", "why": "no direct Constellation equivalent for click-to-run-transform icon tiles; needs redesign as a standard choice control (radio/segmented control) with declarative value-setting" } ],
+      "constellation_config": { "field_type_hint": "Text", "control": "TBD (radio/segmented control recommended)", "source": null },
+      "property_rule": { "mode": "String", "type": "Text", "property_source_type": null, "property_source_name": null }
+    }
+  ],
+  "actionChains": [
+    {
+      "section": "ClinicianOfficeType", "control": "pxIcon (Dental)", "boundProperty": ".OfficeTypeOption",
+      "triggers": [ { "event": "click", "keyCode": "" } ],
+      "chain": [ { "action": "runDataTransform", "target": "", "targetSection": "", "dataTransform": "SetOfficeType", "activity": "", "conditions": [] } ],
+      "businessBehaviour": "User clicks the Dental icon tile; a data transform (SetOfficeType) runs to set the office type on the case.",
+      "treatment": "Relocate SetOfficeType's logic to a calculated field or assignment-submit boundary; replace icon-click UI with a standard choice control bound declaratively.",
+      "patternHits": ["E13", "E15"], "classification": "SUPPORTED_WITH_PROCESS_REDESIGN"
+    },
+    {
+      "section": "ClinicianOfficeType", "control": "pxIcon (Medical)", "boundProperty": ".OfficeTypeOption",
+      "triggers": [ { "event": "click", "keyCode": "" } ],
+      "chain": [ { "action": "runDataTransform", "target": "", "targetSection": "", "dataTransform": "SetOfficeType", "activity": "", "conditions": [] } ],
+      "businessBehaviour": "Same mechanism as the Dental tile, for the Medical option.",
+      "treatment": "Same as above.",
+      "patternHits": ["E13", "E15"], "classification": "SUPPORTED_WITH_PROCESS_REDESIGN"
+    }
+  ],
+  "conditions": [],
+  "listSources": [],
+  "step8": {
+    "8a_data_pages": { "count": 0, "data_pages": [], "required_change": "" },
+    "8b_report_definitions": [],
+    "8c_rule_manifest": {
+      "sections": ["ClinicianOfficeType"], "dataPages": [], "reportDefinitions": [],
+      "whens": [], "transforms": ["SetOfficeType (unresolved)"], "activities": [], "validates": [],
+      "controls": ["pxIcon"]
+    },
+    "8d_page_value_groups": [],
+    "8e_picklist_radio": [ { "leaf": ".OfficeTypeOption", "decision": "NEEDS_REVIEW", "verdict": "redesign-source" } ]
+  },
+  "patternTally": { "#5": 1, "E13": 2, "E15": 1 },
+  "workItems": [
+    {
+      "seq": 1,
+      "targetRule": { "type": "Rule-UI-View", "class": "PDS-FW-HRLifeFW-Work-ContractRequest", "name": "ClinicianOfficeType" },
+      "operation": "create",
+      "authoringSkill": "rules-rule-ui-view",
+      "methodologySkill": "methodology-assignment-authoring",
+      "sourceRule": { "type": "Rule-HTML-Section", "class": "PDS-FW-HRLifeFW-Work-ContractRequest", "name": "ClinicianOfficeType" },
+      "behaviorContract": "User picks Dental or Medical office type via a single choice control; selecting a value sets .OfficeTypeOption. No click-to-run-transform wiring in the target design.",
+      "authoringNotes": [
+        "Replace the two icon-tile controls (Dental/Medical) with a standard bound choice control (radio or segmented control) -- pattern E15",
+        "Bind declaratively to .OfficeTypeOption -- Constellation has no per-control click->action event model (pattern E13); do not attempt to reproduce the click wiring",
+        "Localize pyCaption OfficeTypeOption / pyCaption PROVIDER SELECTION via Rule-UI-Localization -- pattern #5 (no existing localization infrastructure to reuse in this engagement)",
+        "Get the rules-rule-ui-view schema and examples before building the payload -- this item names the target and the behavior only, not the pxViewMetadata/pyContent shape"
+      ],
+      "dependsOn": [],
+      "patternHits": ["#5", "E13", "E15"]
+    },
+    {
+      "seq": 2,
+      "targetRule": { "type": "Rule-Obj-FlowAction", "class": "PDS-FW-HRLifeFW-Work-ContractRequest", "name": "ClinicianOfficeType" },
+      "operation": "update",
+      "authoringSkill": "rules-rule-obj-flowaction",
+      "methodologySkill": "methodology-assignment-authoring",
+      "sourceRule": null,
+      "behaviorContract": "The FlowAction must present the new View instead of the legacy section, with no other behavior change.",
+      "authoringNotes": [
+        "Set pyViewReference to the seq-1 View's name; blank pySectionReference (Constellation wiring)",
+        "pyIsUsingDesignTemplate and pyAllowRuntimeEdit are not auto-filled for Constellation apps -- set both explicitly to true per the rules-rule-obj-flowaction skill"
+      ],
+      "dependsOn": [1],
+      "patternHits": []
+    }
+  ],
+  "needsReview": [
+    { "item": "SetOfficeType (Rule-Obj-Model)", "blockingFact": "Not deep-fetched this pass -- decision is Provisional", "resolution": "Run the Logic-Rule Data-Transform brief before this item can become a workItems entry; a Provisional decision must never appear in workItems" }
+  ],
+  "completeness": {
+    "status": "PARTIAL",
+    "analysedRuleCount": 2, "unresolvedDependencyCount": 1,
+    "missingRules": ["SetOfficeType (fetched by name only, not analyzed)"],
+    "limitations": [
+      "This is a deliberately minimal validation run (case-type test harness), not a full per-Flow-Action deep-dive -- SetOfficeType's own logic, the icon binary files, and app-wide Step 5 conflict scan were not run. workItems therefore covers only the View/FlowAction pair, not SetOfficeType's eventual relocation -- that becomes a third work item once its Logic-Rule pass returns Final."
+    ]
+  }
+}

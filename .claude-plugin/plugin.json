@@ -1,0 +1,25 @@
+{
+  "name": "app-intelligence-companion",
+  "description": "Read-only graph/log intelligence companion for Pega Infinity applications — Neo4j-grounded diagnosis, impact analysis, code review, and per-application knowledge, designed to hand off any write action to the Pega Infinity Authoring plugin's ChangeRequest workflow.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Alamaticz Solutions"
+  },
+  "skills": "./claude-skills/",
+  "agents": [
+    "./claude-agents/pega-verifier.md",
+    "./claude-agents/pega-independent-code-reviewer.md",
+    "./claude-agents/pega-designer.md",
+    "./claude-agents/pega-graph-traverser.md",
+    "./claude-agents/pega-gap-coverage.md",
+    "./claude-agents/pega-log-rca.md"
+  ],
+  "mcpServers": "./.mcp.json",
+  "userConfig": {
+    "pds_mcp_url": {
+      "type": "string",
+      "title": "PDS MCP server URL",
+      "description": "Lambda Function URL for this client's PDS MCP deployment (see PDS MCP/src/api/server.py)"
+    }
+  }
+}

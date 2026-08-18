@@ -1,0 +1,20 @@
+# Dev-run artifacts, not part of the plugin's own content — see PLUGIN_BUILD_CONTEXT.md's
+# "Stray dev artifacts" note. logs/ gets written to by whichever MCP server process happens to be
+# launched with this directory as its working directory (e.g. the Authoring Plugin's jar), not by
+# Companion itself.
+logs/
+
+# Local Claude Code session/permission overrides — machine-specific, not meant to ship with the
+# plugin (per-team-member .claude/settings.local.json already documents its own contents).
+.claude/settings.local.json
+
+# Live OAuth session for the Pega Infinity Authoring Plugin's MCP server — contains a real access
+# token and refresh token for a client's Pega instance. This directory is written by that plugin's
+# own MCP server (not Companion) whenever it happens to run with this folder as its working
+# directory, same as logs/ above. NEVER commit this — it is a live credential, not plugin content.
+.infinity-rules-mcp/
+
+# Standalone-jar / bytecode-extraction scratch work from reverse-engineering the Authoring Plugin
+# during analysis sessions — Pegasystems' own compiled classes, not Companion's content, and not
+# meant to ever be tracked even if it reappears locally.
+jx/

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "PDS MCP": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "${user_config.pds_mcp_url}"]
+    }
+  }
+}
