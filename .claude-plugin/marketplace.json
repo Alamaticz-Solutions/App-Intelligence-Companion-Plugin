@@ -4,7 +4,7 @@
     "name": "Alamaticz Solutions",
     "email": "alamaticzsolutions@gmail.com"
   },
-  "description": "Self-contained marketplace for the App Intelligence Companion Plugin — internal Alamaticz Solutions distribution only, not published publicly.",
+  "description": "Self-contained marketplace for the App Intelligence Companion Plugin — published at github.com/Alamaticz-Solutions/App-Intelligence-Companion-Plugin, mirroring how the sibling Pega Infinity Authoring plugin is distributed.",
   "plugins": [
     {
       "name": "app-intelligence-companion",
