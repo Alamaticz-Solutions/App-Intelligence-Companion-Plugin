@@ -8,8 +8,55 @@ governed `methodology-change-request-workflow` (branch isolation, mandatory huma
 trail). Companion and Authoring are meant to be installed together — see
 [`PEGA_CLAUDE_CODE_SETUP.md`](./PEGA_CLAUDE_CODE_SETUP.md) to get both running.
 
-Internal Alamaticz Solutions tooling — not published to a public marketplace. Source lives at
+Internal Alamaticz Solutions tooling. Not published to a public marketplace, but any teammate with
+repo access can install it straight from git — no manual cloning or file copying required. Source
+lives at
 [`Alamaticz-Solutions/App-Intelligence-Companion-Plugin`](https://github.com/Alamaticz-Solutions/App-Intelligence-Companion-Plugin).
+
+## Prerequisites
+
+- [Claude Code](https://claude.com/claude-code) CLI installed.
+- Git access to `Alamaticz-Solutions/App-Intelligence-Companion-Plugin` (HTTPS auth or an SSH key
+  registered with GitHub).
+
+## Install From This Repository
+
+This repo carries its own self-contained marketplace at `.claude-plugin/marketplace.json`, so Claude
+Code can add it as a marketplace source directly from the git URL — the same pattern Pega uses for
+`infinity-ai-plugins`, just pointed at our repo.
+
+```bash
+claude plugin marketplace add https://github.com/Alamaticz-Solutions/App-Intelligence-Companion-Plugin.git
+claude plugin install app-intelligence-companion@app-intelligence-companion-marketplace
+```
+
+Or with an SSH git URL:
+
+```bash
+claude plugin marketplace add git@github.com:Alamaticz-Solutions/App-Intelligence-Companion-Plugin.git
+claude plugin install app-intelligence-companion@app-intelligence-companion-marketplace
+```
+
+After install, restart your Claude Code session (or run `/reload-plugins`) so the plugin's skills,
+agents, and hooks load.
+
+> [!TIP]
+> On Windows, adding the marketplace can fail with a "Filename too long" error. If that happens,
+> enable Git long-path support and retry:
+> ```bash
+> git config --system core.longpaths true
+> ```
+
+## Update An Existing Install
+
+When this repo gets a newer plugin build, refresh from the same marketplace source:
+
+```bash
+claude plugin marketplace update app-intelligence-companion-marketplace
+claude plugin update app-intelligence-companion@app-intelligence-companion-marketplace
+```
+
+Then run `/reload-plugins` or start a new Claude Code session.
 
 ## What it does
 
