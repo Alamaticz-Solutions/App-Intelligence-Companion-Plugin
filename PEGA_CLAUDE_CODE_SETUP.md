@@ -1,8 +1,10 @@
 # App Intelligence Companion Plugin – Claude Code Setup Guide (Windows)
 
 Step-by-step instructions for getting the **App Intelligence Companion Plugin** running in
-**Claude Code**, for internal Alamaticz Solutions team members. This plugin is not published to a
-public marketplace — it's shared internally, currently via this OneDrive-synced folder.
+**Claude Code**, for internal Alamaticz Solutions team members. This is not published to a public
+Claude Code marketplace — it's shared internally, via the
+[`Alamaticz-Solutions/App-Intelligence-Companion-Plugin`](https://github.com/Alamaticz-Solutions/App-Intelligence-Companion-Plugin)
+repository (the source of truth going forward) or the OneDrive-synced folder it originated from.
 
 Companion is the read-only, graph-grounded analysis layer. It assumes the
 **[Pega Infinity Authoring Plugin](../Pega%20Infinity%20Authoring%20Plugin/PEGA_CLAUDE_CODE_SETUP.md)**
@@ -94,20 +96,32 @@ terminal (or sign out/in) rather than assuming the fix didn't work.
 
 ## Step 3: Get the plugin folder onto your machine
 
-If you're reading this file from inside the OneDrive-synced `Desktop\Projects - Alamaticz\App
-Intelligence Companion Plugin` folder, you already have it — OneDrive sync keeps it current. Note the
-full path; you'll need it in Step 4. If this project moves to a shared git repo instead, `git clone`
-it and use that local path in place of the OneDrive path below.
+**Preferred — clone the git repo** (real version history, easy to pull updates):
+```powershell
+git clone https://github.com/Alamaticz-Solutions/App-Intelligence-Companion-Plugin.git
+```
+Note the full path to the cloned folder; you'll need it in Step 4.
+
+**Alternative — the OneDrive-synced copy.** If you're reading this file from inside the
+OneDrive-synced `Desktop\Projects - Alamaticz\App Intelligence Companion Plugin` folder, you already
+have a working copy — OneDrive sync keeps it current, and everything below works identically against
+either location. Note its full path if you're using this path instead of a clone.
+
+**A note on every path below**: the rest of this guide uses the OneDrive path
+(`C:\Users\<you>\OneDrive - Alamaticz Solutions\Desktop\Projects - Alamaticz\App Intelligence
+Companion Plugin`) in its example commands, since that's the copy this doc was originally written
+against. If you cloned the git repo instead, substitute wherever you cloned it to — every command
+works identically either way, only the path string changes.
 
 ---
 
 ## Step 4: Load the plugin in Claude Code
 
-**For a single session (confirmed working end-to-end 2026-08-17 — this exact command was run headless
-against this exact plugin folder and all 11 skills + 6 agents loaded correctly. Two more skills
-(`pega-companion`, `pega-cross-environment`) and a `manifest.json` were added 2026-08-18, structurally
-identical to the original 11 — not yet re-confirmed with a fresh `--plugin-dir` run, but nothing about
-the loading mechanism changed):**
+**For a single session — confirmed working end-to-end, re-verified 2026-08-18 against the current 13
+skills + 6 agents (not just the original 11)**: a fresh headless `claude --plugin-dir` run against
+this exact plugin folder loaded every skill and agent correctly by name, the `SessionStart` hook
+fired, and (once the Step 2 `PEGA_LOCAL_SKILLS_PATH` fix was applied) the Authoring Plugin's own MCP
+server connected successfully through it:
 ```powershell
 claude --plugin-dir "C:\Users\<you>\OneDrive - Alamaticz Solutions\Desktop\Projects - Alamaticz\App Intelligence Companion Plugin"
 ```

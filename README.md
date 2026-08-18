@@ -8,7 +8,8 @@ governed `methodology-change-request-workflow` (branch isolation, mandatory huma
 trail). Companion and Authoring are meant to be installed together — see
 [`PEGA_CLAUDE_CODE_SETUP.md`](./PEGA_CLAUDE_CODE_SETUP.md) to get both running.
 
-Internal Alamaticz Solutions tooling — not published to a public marketplace.
+Internal Alamaticz Solutions tooling — not published to a public marketplace. Source lives at
+[`Alamaticz-Solutions/App-Intelligence-Companion-Plugin`](https://github.com/Alamaticz-Solutions/App-Intelligence-Companion-Plugin).
 
 ## What it does
 
