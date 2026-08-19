@@ -1,7 +1,8 @@
 {
   "mcpServers": {
     "App Intelligence MCP": {
-      "serverUrl": "https://kl5ufbv446.execute-api.us-east-1.amazonaws.com/default/mcp"
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://kl5ufbv446.execute-api.us-east-1.amazonaws.com/default/mcp"]
     }
   }
 }
