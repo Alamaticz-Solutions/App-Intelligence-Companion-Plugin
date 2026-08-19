@@ -11,6 +11,20 @@ This plugin answers Pega questions the Rule Authoring plugin's own 50 skills can
 graphs, blast radius, production log diagnosis, cross-environment comparison, and per-application
 tribal knowledge. It never writes to Pega directly.
 
+## Before you dispatch: check the data-access gate first
+
+If the question touches applications, case types, rules, branches, cases, or data pages **at all** —
+even just to ask "what applications exist" or "how many case types" as part of a bigger question that
+also asks for raw graph counts — load `pds-pega-data-access` **first**, before any other specialist
+skill, and follow its routing decision for that part of the question. This applies even when the
+question is phrased as a graph/Cypher request; a mixed question ("what applications, how many case
+types, and how many rules/nodes are in the graph") splits into a data-access part (applications, case
+types — live Pega concepts) and a graph-count part (raw rule/node totals — `pega-neo4j-cypher-
+querying`'s territory). Resolve the data-access part through `pds-pega-data-access`'s routing policy
+before falling through to `pega-neo4j-cypher-querying` for the rest. Do not let a "raw Cypher" or
+"graph" framing skip this gate — `pds-pega-data-access` triggers on the Pega concepts in the question,
+not on how the question is worded.
+
 ## Find the right specialist skill
 
 This plugin ships ten specialist skills. Rather than listing all of them here, search for the one
@@ -36,7 +50,7 @@ Quick map, by question shape:
 | "Migrate this Flow Action / Case Type to Constellation" | `pega-flowaction-migration` |
 | Starting or resuming a ChangeRequest, proposing a new feature | `pega-companion-seam` |
 | Graph gap, stale data, ambiguous result mid-task | `pega-live-gap-fill` |
-| Routing a Pega rule/case/data-page lookup correctly | `pds-pega-data-access` |
+| Any question touching Pega rules/cases/applications/branches/data pages, even mixed with other asks | `pds-pega-data-access` — **check this gate first, see above** |
 | Per-application notes: naming traps, known defects, conventions | `pega-app-knowledge` |
 
 ## Two invariants, always
