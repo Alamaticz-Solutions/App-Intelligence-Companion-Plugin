@@ -11,6 +11,56 @@ question at all — load this skill before making the first tool call. Do not
 start improvising with `run-data-page` or guessing a dataViewID until you've
 checked whether this file already documents the exact recipe (see §2).
 
+## MCP connection is remote — expect a cold-start delay, don't report it as broken
+
+This plugin's MCP server (`App Intelligence MCP`) is not local — it's a `npx mcp-remote` bridge to
+a remote endpoint, freshly spawned each session. On the **first** tool call of a session (and
+after any long gap where the session was idle for hours), the underlying server may still be
+mid-handshake (package resolution → OAuth discovery → transport connect), which typically takes
+anywhere from a few seconds up to ~1-2 minutes.
+
+During that window, the server's tools may not be listed yet. **This is not a failure or a broken
+connection** — it means the handshake hasn't finished. If a tool search for this plugin's
+capabilities (e.g. `get_schema`, `neo4j_query`, `search_rules`) comes back empty or a call errors
+with "tool not found":
+
+1. Do not immediately tell the user the plugin is broken or disconnected.
+2. Wait briefly and retry the tool search / call once or twice before concluding there's a real
+   problem.
+3. If it's still unavailable after a couple of retries, say plainly that the remote MCP server is
+   still connecting (or genuinely unreachable) rather than framing it as an error in the plugin
+   itself.
+
+## Ground every answer in both sources — graph first, live second, then combine
+
+Don't answer a Pega question from only one side, and don't jump straight to the Rule Authoring
+plugin's live tools just because they're available. The two sources answer different things, and a
+good answer usually needs both:
+
+- **Companion (PDS Neo4j graph)** — structure, dependency closure, blast radius, history,
+  precedent, per-app tribal knowledge (`pega-app-knowledge`). Cheap, already computed, spans every
+  environment the graph covers.
+- **Rule Authoring plugin (live Pega)** — the current, authoritative state of one specific
+  connected instance: exact rule content right now, live case data, whether something actually
+  works today. Slower (real API calls), scoped to one instance.
+
+Default order for any non-trivial question:
+1. Check the graph first (`pega-graph-traverser`, `pega-feature-node-retrieval`,
+   `pega-neo4j-cypher-querying`, or whichever specialist skill fits) to get structure, context, and
+   precedent before touching anything live.
+2. Only then call the Rule Authoring plugin's live tools per the routing rule below (§0) — and
+   only for what the graph can't answer (current live content, a specific case's live state, an
+   actual write). Don't re-fetch something from live Pega that the graph already has, unless the
+   graph data looks stale for this specific question.
+3. **Combine before answering.** Don't hand the user two half-answers ("the graph says X, and
+   separately, live Pega says Y") and leave them to reconcile it. Synthesize: state the answer,
+   note if graph and live data disagree (which itself is a signal — possible drift or a stale
+   graph), and be explicit about which source each part of the answer came from.
+
+Skip straight to live-only when the question is inherently live-only (e.g. "is this case currently
+assigned to anyone") — the graph has no live case state at all. Skip the graph only when there's
+truly nothing structural to add.
+
 ## 0. Authority is scoped, not global — the tri-state rule
 
 PDS MCP's `config.py` still holds its own `PEGA_CONFIGS`/`NEO4J_CONFIGS` for every environment
