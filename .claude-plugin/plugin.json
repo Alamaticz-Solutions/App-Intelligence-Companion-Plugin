@@ -14,12 +14,5 @@
     "./claude-agents/pega-gap-coverage.md",
     "./claude-agents/pega-log-rca.md"
   ],
-  "mcpServers": "./.mcp.json",
-  "userConfig": {
-    "pds_mcp_url": {
-      "type": "string",
-      "title": "PDS MCP server URL",
-      "description": "Lambda Function URL for this client's PDS MCP deployment (see PDS MCP/src/api/server.py)"
-    }
-  }
+  "mcpServers": "./.mcp.json"
 }
