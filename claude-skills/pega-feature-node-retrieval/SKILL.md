@@ -24,11 +24,12 @@ you're actually working against that repo/graph.
 
 ## Nothing here is a fixed fact — this section is a set of checks, not a snapshot
 
-This skill was written against one point-in-time state of the graph (2026-08-13, 3 Feature nodes,
-all in OWLM). **That state will change** — more Feature nodes get built, more rule summaries get
-cached, more apps may get indexed. Every numeric claim, environment value, and coverage statement
-below is a **worked example of how to run the check**, not a fact to carry forward unchecked. Run
-the check every time; don't recall the answer from a prior session.
+This skill was written against one point-in-time state of one deployment's graph. **That state will
+differ per deployment and change over time** — more Feature nodes get built, more rule summaries get
+cached, the set of indexed apps changes entirely between deployments. Every numeric claim, environment
+value, and coverage statement below is a **worked example of how to run the check**, not a fact to
+carry forward unchecked, and no specific app name should ever be assumed present. Run the check every
+time; don't recall the answer from a prior session.
 
 **0a. Discover current Feature node coverage** (cheap, ~0 tokens, always run this first — never
 assume from memory how many nodes exist or which apps have them):
@@ -44,10 +45,11 @@ parameter on `search_features`/`search_rules` filters correctly when it exactly 
 that actually exists on a node — but silently **no-ops to unfiltered, cross-environment results**
 when it matches nothing (verified pattern: passing a value with zero real matches returned
 results from a different app entirely, rather than erroring or returning empty). The tool's own
-docstring enum is not reliable — it has been found wrong for most apps against real data (e.g.
-`odpipeline` documented vs. `ODPipeline` actually stored; short forms like `Denovo`/`OARC`/`HRLife`
-documented vs. longer real values actually stored). Don't trust the docstring or a table from a
-prior session — pull the live values:
+docstring enum is not reliable — it hardcodes a fixed example list that has been found wrong for
+real data in more than one deployment (documented short/casing forms not matching what's actually
+stored, or not covering apps that didn't exist when the docstring was last written at all). Don't
+trust the docstring, and don't trust an app-name list from a prior session or deployment — pull the
+live values:
 ```cypher
 MATCH (r:Rule) RETURN DISTINCT r.environment AS env, count(r) AS n ORDER BY env
 ```

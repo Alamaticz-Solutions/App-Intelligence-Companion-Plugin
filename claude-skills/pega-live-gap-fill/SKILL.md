@@ -3,10 +3,12 @@ name: pega-live-gap-fill
 description: "General-purpose: when the PDS Neo4j graph, its cached summaries, or PDS MCP search results are stale, missing, or ambiguous mid-task, use the Pega Infinity Authoring plugin to fetch the live truth directly from Pega instead of reporting a gap. Covers application-context switching (confirmed live: maps 1:1 to the graph's r.environment values), which tools to reach for per gap type, and the permission caveat (not every app is switchable for every operator). Referenced by pega-neo4j-cypher-querying, pega-feature-node-retrieval, and pega-log-diagnosis rather than duplicated in each."
 ---
 
-<!-- Skill version: 1.2.0 | 2026-08-18 — the "1:1 bridge" below is no longer complete: the graph now
-     has an environment (CCPMInt) the authoring plugin's roster doesn't expose at all, confirmed live
-     on both sides same-session. This is expected drift, not a bug — re-verify the roster/environment
-     lists live every time rather than trusting either list below as current. -->
+<!-- Skill version: 1.3.0 | 2026-08-20 — stripped every hardcoded app-name/roster example after a
+     completely different deployment (different app names, different counts, no overlap with the
+     rosters this skill used to cite) showed those examples were being read as current facts. The
+     "1:1 bridge isn't always complete" lesson is real and generalizes; the specific names it was
+     demonstrated with do not — re-verify the roster/environment lists live every time, every
+     deployment, rather than trusting any list in this file as current. -->
 
 # Filling graph/MCP gaps with the live Pega Infinity Authoring plugin
 
@@ -20,39 +22,41 @@ directly: "check live Pega for X" / "is the graph up to date on Y."
 
 ## Structural fact: one Pega tenant, many applications, confirmed live
 The Authoring plugin is configured against **one** Pega instance (`pega_base_url` in this plugin's
-config) — it is not multi-instance like PDS MCP's connections across ~10 environments (see
-`pega-cross-environment`). Live check (`list-available-applications`, re-confirmed 2026-08-18): that
-one instance hosts **12 applications** as an `pxCurrentAppStack`-style roster — `OWLM`, `Deal`,
-`DenovoImp`, `Office`, `OARCAPP`, `CCPM`, `ODH`, `OKTA`, `PBDR`, `PBD`, `ODPipeline`, `HRLifeImp` — and
-`switch-application-context` moves between them without a new connection.
+config) — it is not multi-instance like PDS MCP's connections across however many environments it
+spans (see `pega-cross-environment`). How many applications that one instance hosts, and their names,
+is a property of the connected instance, not a fixed fact of this skill — always discover it live via
+`list-available-applications()` (an `pxCurrentAppStack`-style roster) rather than assuming a count or
+name list from a prior session or deployment. `switch-application-context` moves between whatever
+applications that live call returns, without a new connection.
 
-**The bridge to `pega-neo4j-cypher-querying` §0 Axis B**: application `applicationName` here matches the
-graph's `r.environment` property values for most of the roster — verified 2026-08-17: `OWLM, Deal,
-DenovoImp, Office, OARCAPP, CCPM, ODH, ODPipeline, HRLifeImp` appear identically on both sides. Once
-you've live-verified an `r.environment` value this way, **that exact string is your
+**The bridge to `pega-neo4j-cypher-querying` §0 Axis B**: application `applicationName` here often
+matches the graph's `r.environment` property values, for whichever apps happen to overlap between the
+two systems — but this must be **live-verified per app, per session**, never assumed from a prior
+match. Once you've live-verified an `r.environment` value this way, **that exact string is your
 `switch-application-context` target** for the apps that do overlap — no alias translation needed,
-unlike PDS MCP's own fuzzy Axis-A aliases (`odpipeline`→`ODPipeline` doesn't hold string-for-string,
-but `switch-application-context` wants the graph's literal value, not the MCP alias).
+unlike PDS MCP's own fuzzy Axis-A aliases (which don't necessarily hold string-for-string against the
+graph's literal value — `switch-application-context` wants the graph's literal value, not the MCP
+alias).
 
-**This is no longer a clean 1:1 bridge — confirmed live 2026-08-18, same session, both sides.** The
-graph's `r.environment` set has grown to include `CCPMInt` (14 rules: `Rule-Obj-Property`,
-`Rule-Obj-Model`, `Rule-Obj-Activity`) — re-run `list-available-applications` and it is **not** in the
-12-app roster above, confirmed the same session (`totalCount: 12`, no `CCPMInt` entry). Conversely,
-`OKTA`/`PBDR`/`PBD` are in the authoring roster but were never claimed to have graph coverage (they
-weren't part of the original 9-way verified match either). **Neither list is authoritative for the
-other any more — this is exactly the "PDS reaches environments the authoring plugin can't" asymmetry
-`pega-cross-environment` documents, now caught live, not hypothetical.** Practical consequence: if a
-gap concerns a rule whose `r.environment = 'CCPMInt'`, there is **no** live-fallback path through this
-skill — `switch-application-context` has nothing to switch to. Say so plainly as a resolution-ceiling
-finding (same discipline as `pega-gap-coverage` step 4), don't keep retrying a switch that can't
-succeed. Don't reuse either list as a fixed fact — re-run `list-available-applications` /
+**This is not guaranteed to be a clean 1:1 bridge — confirmed live in one deployment, and treat that
+as a standing risk in every deployment, not a one-time incident.** The graph's `r.environment` set can
+include a value that, when you re-run `list-available-applications`, is simply **not** in the
+authoring roster at all — and conversely, the authoring roster can include applications that were
+never claimed to have graph coverage. **Neither list is authoritative for the other** — this is
+exactly the "PDS reaches environments the authoring plugin can't" asymmetry `pega-cross-environment`
+documents. Practical consequence: if a gap concerns a rule whose `r.environment` value has no matching
+entry in the live authoring roster, there is **no** live-fallback path through this skill —
+`switch-application-context` has nothing to switch to. Say so plainly as a resolution-ceiling finding
+(same discipline as `pega-gap-coverage` step 4), don't keep retrying a switch that can't succeed.
+Don't reuse either list as a fixed fact from a prior check — re-run `list-available-applications` /
 `pega-neo4j-cypher-querying`'s §0 check every time, same live-verify discipline as everywhere else in
 this skill family.
 
 **Permission caveat, confirmed live**: not every listed application is switchable for the current
-operator. At check time, 11 of 12 were switchable; `HRLifeImp` showed `switchable: false` (no alias)
-for this operator. Check the `switchable` field before assuming you can reach a given environment —
-this is access-group-gated per operator, re-verify per session rather than assuming today's roster.
+operator — in one deployment, one specific application in an otherwise-switchable roster came back
+`switchable: false` (no alias) for the connected operator. Check the `switchable` field on every
+application before assuming you can reach it — this is access-group-gated per operator, re-verify per
+session rather than assuming today's roster (or any particular app's switchability) still holds.
 
 ## Procedure
 
@@ -101,9 +105,10 @@ will show after its next build.
 
 ## What NOT to do
 - Don't assume any PDS graph environment is reachable from this plugin without checking both that
-  it's in the current `list-available-applications` roster **and** `switchable` — confirmed live,
-  `CCPMInt` fails the first check entirely (not in the roster at all) and `HRLifeImp` fails the
-  second (`switchable: false`) — two different failure modes, check both.
+  it's in the current `list-available-applications` roster **and** `switchable` — confirmed live, one
+  deployment had an environment fail the first check entirely (not in the roster at all) while a
+  different application in the same roster failed the second (`switchable: false`) — two different
+  failure modes, check both, for whichever apps this deployment actually has.
 - Don't use this as a bulk replacement for `neo4j_query`/`get_rule_summaries` — these are live REST
   calls to Pega, slower and rate-limited compared to the graph. Reach for it for the specific gap, not
   as a faster path for things the graph already answers cheaply.

@@ -78,7 +78,7 @@ keeps those parallel agents from losing information that other agents already fo
 | `references/patterns-1-12.md` | The team's numbered patterns 1–12 with verbatim statements, live-verified evidence, and xlsx tag-hint corrections | All analysis agents |
 | `references/patterns-13-23.md` | Patterns 13–23 (including new Pattern 23, custom harness redesign) with live-verified evidence | All analysis agents |
 | `references/patterns-extended.md` | Extended patterns E13–E20 (UI-behavior blockers, team ratification pending) | Section-Analysis, Logic-Rule agents; orchestrator |
-| `references/patterns-meta.md` | Target platform, environment name mapping, rule-type footprint, migration priority summary, OWLM/OARC precedent grounding | All analysis agents |
+| `references/patterns-meta.md` | Target platform, environment name mapping, rule-type footprint, migration priority summary, precedent-app grounding (discovered live per engagement, never hardcoded) | All analysis agents |
 | `references/output-contracts.md` | Registry layout, Work-Item Manifest schema, closed enums, the Phase 4 branch-completeness gate, **plus §Case-Type outputs** (inventory/manifest wrapper schema) | Orchestrator, Reconciliation, Case-Type Reconciliation agents; whoever runs Phase 4 |
 | `references/casetype-enumeration.md` | Case Type entry point only: Phase 0a inventory procedure (Cypher traversal, stub filtering), Phase 0b deep-dive handoff | Orchestrator, only when the entry point is a Case Type |
 | `references/agent-roles.md` | All 9 agent role definitions with input/output contracts, concurrency caps, outer-wave dispatch | Orchestrator |
@@ -134,16 +134,17 @@ assembles a document, formats output for display, or writes structured data to a
   finalizing any redesign recommendation, search the discovered `precedentApps` for a precedent
   implementation (`search_rules` / graph, by rule type and concept). When one exists, cite the
   precedent rule (app + class + name) in the recommendation; when it contradicts generic guidance,
-  prefer the precedent and say why. **OWLM and OARC (`OARCAPP`) are the precedent apps discovered
-  in the HRLifeImp engagement** — treat them as a worked example of the mechanism, never as a
-  hardcoded assumption true of every engagement. If Phase 0 finds no already-migrated app in the
-  current environment, say so explicitly (`precedentApps: []`) and drop precedent-grounding for
-  that run rather than defaulting to a stale app name — confirmed to happen in practice (a run
-  against `PegaCSSample` correctly reported "OWLM/OARC not indexed in this environment," proving
-  the mechanism must not be hardcoded to those two names). These apps are also this skill's own
-  evaluation ground truth for HRLifeImp specifically: to validate changes to the skill using that
-  engagement, pick a migrated OWLM/OARC view whose Traditional ancestor still exists and compare
-  the skill's recommendation to what the team actually built.
+  prefer the precedent and say why. **Specific precedent apps were discovered this way in one past
+  engagement** — treat that as a worked example of the mechanism, never as a hardcoded assumption
+  true of every engagement, and never name a specific app here as if it's guaranteed to recur. If
+  Phase 0 finds no already-migrated app in the current environment, say so explicitly
+  (`precedentApps: []`) and drop precedent-grounding for that run rather than defaulting to a stale
+  app name — confirmed to happen in practice (a run against a different app correctly reported no
+  precedent apps indexed in that environment, proving the mechanism must not be hardcoded to any
+  specific app names). The apps discovered in that one past engagement are also this skill's own
+  evaluation ground truth for that engagement specifically: to validate changes to the skill using
+  that engagement, pick a migrated precedent view whose Traditional ancestor still exists and
+  compare the skill's recommendation to what the team actually built.
 
 ## The design-pattern catalog
 
@@ -226,8 +227,8 @@ query, since case types and flow actions can have similar-looking names.
 
 ### Step 2 — confirm source and write backends (mandatory, do not skip)
 
-This skill reads via PDS MCP (`neo4j_query`, `pega_get_rule_xml`, environment strings like
-`HRLifeImp`); Phase 4 authors via the Pega Infinity Authoring Plugin's own OAuth'd connection
+This skill reads via PDS MCP (`neo4j_query`, `pega_get_rule_xml`, environment strings — always
+discovered live, never a hardcoded example); Phase 4 authors via the Pega Infinity Authoring Plugin's own OAuth'd connection
 (`list-available-applications`, `get-application`, `switch-application-context`). **These are two
 separate backends and being the same Pega instance is an assumption, not a guarantee.** Before
 Phase 1 starts:
@@ -456,8 +457,8 @@ files they most closely relate to — the cross-references below show where.
 - **Version-sensitive capability claims must cite a release-notes check** for the pinned target
   version (see §Target platform above). "Constellation can't do X" without a citation is not a
   finding. (See also `references/patterns-meta.md` §Target platform.)
-- **Precedent-first**: a redesign recommendation that OWLM/OARC has already solved differently
-  must follow the precedent or explicitly justify diverging from it. (See also
+- **Precedent-first**: a redesign recommendation that a discovered precedent app has already solved
+  differently must follow the precedent or explicitly justify diverging from it. (See also
   `references/patterns-meta.md` §Precedent grounding.)
 - **Empty ≠ configured**: an empty rule-name tag is not an invocation; a generated default is not
   intentional configuration; a feature represented *differently* in Constellation is not

@@ -84,9 +84,9 @@ Count the distinct rows — this is the "dependent rules" count the risk rubric 
 
 **Confirmed live bug in this exact recipe, caught during end-to-end testing before this skill
 shipped**: for a `Rule-UI-View` (or other UI-shaped rule — `Rule-HTML-Section`, `Rule-HTML-Paragraph`,
-etc.), the filter above returns **zero** rows for a rule with **confirmed real callers**. Tested on
-`AddressInfo` (OWLM): Step 1 found 2 direct callers (`CollectBasicInformation`, `EditBasicInformation`,
-both `Rule-UI-View`, both category `ui:reference_child` — "this section is embedded inside that one"),
+etc.), the filter above returns **zero** rows for a rule with **confirmed real callers**. Tested on a
+UI-view rule in one app: Step 1 found 2 direct callers (both `Rule-UI-View`, both category
+`ui:reference_child` — "this section is embedded inside that one"),
 but Step 2's filtered query returned empty, because `ui:reference_child`/`ui:pyInclude`/
 `ui:deferload_child` are excluded as noise by `pega-neo4j-cypher-querying`'s filter — correctly, for
 activity/logic-rule impact analysis, but **wrongly** for a UI rule's own blast radius, where "which
@@ -98,9 +98,9 @@ which would wrongly compute LOW risk in Step 6 for something that isn't. Check t
 filter unconditionally.
 
 **Step 3 — Multi-app presence, with the disambiguation this rubric actually needs.** The naive check
-("does this rule name exist in other environments") produces false positives — **confirmed live**:
-`AddressInfo` exists in both `OWLM` (`Rule-UI-View` on the `OWLM` ruleset) and `HRLifeImp`
-(`Rule-Obj-Property` on the `PDS` ruleset) — completely unrelated rules that happen to share an
+("does this rule name exist in other environments") produces false positives — **confirmed live**: a
+rule name existed in two different apps as a `Rule-UI-View` in one and an unrelated `Rule-Obj-Property`
+in the other — completely unrelated rules that happen to share an
 English-word name, not a shared/framework rule at real cross-app risk. Check `rule_type` and
 `ruleset` before counting a name match as genuine multi-app exposure:
 ```cypher

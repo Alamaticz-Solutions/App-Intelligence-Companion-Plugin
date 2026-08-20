@@ -1,6 +1,6 @@
 ---
 name: pega-cross-environment
-description: "Compares a rule across the multiple Pega environments PDS MCP's graph spans (currently ~10) -- has a defect already been fixed elsewhere, does this rule differ between two environments (drift), what does a working version of a currently-failing rule look like in an environment where it works. A capability the Rule Authoring plugin cannot offer at all -- it reaches only the one instance it's authenticated against."
+description: "Compares a rule across whichever multiple Pega environments PDS MCP's graph currently spans (re-derive the count and roster live every session, never assume a prior figure) -- has a defect already been fixed elsewhere, does this rule differ between two environments (drift), what does a working version of a currently-failing rule look like in an environment where it works. A capability the Rule Authoring plugin cannot offer at all -- it reaches only the one instance it's authenticated against."
 ---
 
 <!-- Skill version: 1.0.0 | 2026-08-18 -->
@@ -9,19 +9,20 @@ description: "Compares a rule across the multiple Pega environments PDS MCP's gr
 
 ## What this is, and why it exists
 The Rule Authoring plugin holds one OAuth session against **one** Pega instance. PDS MCP's graph
-spans however many environments it's been configured/ingested against — confirmed live 2026-08-18:
-**10 environments, ~47,632 rules** (`HRLifeImp`, `ODPipeline`, `DenovoImp`, `CCPM`, `OWLM`, `OARCAPP`,
-`Deal`, `Office`, `ODH`, `CCPMInt` — re-derive this list live, it grows as more apps get ingested; see
-the landmine note below). This asymmetry is a real capability gap the Authoring plugin cannot fill
-regardless of which app it's currently pointed at — Companion is the only side of this plugin pair
-that can answer "how does this compare to somewhere else."
+spans however many environments it's been configured/ingested against — this count and roster are
+properties of the current deployment, not a fixed fact of this skill, and **must be re-derived live
+every session** (`MATCH (r:Rule) RETURN DISTINCT r.environment, count(r)`), never assumed from a
+prior check or hardcoded here. This asymmetry is a real capability gap the Authoring plugin cannot
+fill regardless of which app it's currently pointed at — Companion is the only side of this plugin
+pair that can answer "how does this compare to somewhere else."
 
-**Not hypothetical — caught live, same session, both sides, 2026-08-18.** `CCPMInt` is in the graph
-(14 rules) but **absent** from the Authoring plugin's `list-available-applications` roster (12 apps,
-confirmed `totalCount: 12`, no `CCPMInt` entry). Any rule tagged `r.environment = 'CCPMInt'` has no
-live-fallback path through `pega-live-gap-fill` — `switch-application-context` has nothing to target.
-This skill's Step 2 environment-presence check is not a defensive formality; it will actually fire in
-practice.
+**Not hypothetical — caught live in one deployment.** An environment value existed in the graph but
+was **absent** from the Authoring plugin's `list-available-applications` roster entirely. Any rule
+tagged with that environment has no live-fallback path through `pega-live-gap-fill` —
+`switch-application-context` has nothing to target. This is a structural risk in any deployment, not
+tied to a specific app name — this skill's Step 2 environment-presence check is not a defensive
+formality; it will actually fire in practice, for whichever environment ends up in that gap this
+time.
 
 ## Trigger phrases
 "has this defect already been fixed in another environment", "does this rule differ between DEV and

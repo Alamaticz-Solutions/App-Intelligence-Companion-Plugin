@@ -101,11 +101,11 @@ both were themselves missing the one field that would have helped (next paragrap
 strip app identity, it's just usually not there upstream either.
 
 **`pega-logs` (raw log lines) has a real app field — `log.app`, format `"<AppName>:<version>"` — but
-it's populated on only ~7.4% of documents** (757 of 10,212 checked live: `PegaRULES:8` (platform),
-`HRLifeImp:01.01.01`, `CCPM:01.01.01`, `CredentialingImp:01.01.01`, `PegaAESRemote:8` — no `OWLM`
-anywhere in the current dataset). **The `AppName` half matches the Neo4j graph's `r.environment`
-property exactly** (`HRLifeImp` = `HRLifeImp`) — when present, this is a direct, reliable bridge, no
-translation needed. But `log.app` is populated specifically on session/access-group-scoped entries
+it's populated on only ~7.4% of documents** (757 of 10,212 checked live in one deployment, spread
+across a handful of app names including platform entries — coverage and which specific apps appear
+will differ per deployment; re-check live rather than assuming this ratio or roster). **The `AppName`
+half matches the Neo4j graph's `r.environment` property exactly** when present — a direct, reliable
+bridge, no translation needed. But `log.app` is populated specifically on session/access-group-scoped entries
 (e.g. `AgentExecution` tied to a real access group) and **absent on `JobSchedulerExecution`/
 `DataFlow`/batch-thread entries** — which is most error volume, since those run in a shared pooled
 thread serving multiple apps' queued work at once, not scoped to one app. Confirmed on two different
@@ -126,20 +126,24 @@ this data; don't assume it will elsewhere without checking.
    graph tell you which environment(s) actually have a matching rule, rather than guessing the app from
    what the name superficially resembles.
 3. **A name that looks app-specific can belong to a different app entirely — confirmed live, not
-   hypothetical.** Searching for `ServiceRequest` (an OWLM case type) surfaced a group whose rule
-   (`ProcessServiceRequestUpdate`) turned out to belong to **`Deal`**, which has its own, separately-named
-   `PDS-Deal-Work-ServiceRequest` case type — only caught because the cross-app search step ran before
-   assuming OWLM. If the cross-app search returns hits in more than one environment for the same name,
-   that's a real ambiguity to surface, not something to silently resolve by picking one.
+   hypothetical.** In one incident, searching for a case-type-sounding name surfaced a group whose
+   rule turned out to belong to a *different* app with its own, separately-named case type of a
+   similar shape — only caught because the cross-app search step ran before assuming the first app
+   that came to mind. This isn't specific to any pair of apps — the risk is structural (name collision
+   across apps) and applies to whichever apps this deployment actually has. If the cross-app search
+   returns hits in more than one environment for the same name, that's a real ambiguity to surface,
+   not something to silently resolve by picking one.
 4. If the graph has nothing either, that's exactly `pega-live-gap-fill`'s scenario — check live via the
    authoring plugin before concluding the rule doesn't exist anywhere.
 
 ## 1. The environment landmine applies here too — same mechanism, wider blast radius
 `pega_log_analyzer`, `get_rule_summaries`, `pega_get_rule_xml`, `pega_fetch_entire_ruleset_stack`,
 and `pega_get_branch_rules` all resolve their `environment` parameter through the **same**
-`resolve_environment()`/`PEGA_CONFIGS` mechanism as `neo4j_query` (confirmed: same 8 aliases,
-`odpipeline, Tax, OWLM, Deal, Denovo, OARC, CCPM, HRLife`, same silent-fallback-to-default behavior
-on a miss) — see `pega-neo4j-cypher-querying` §0 Axis A for the full mechanics, it's identical here. Get
+`resolve_environment()`/`PEGA_CONFIGS` mechanism as `neo4j_query` (confirmed: same hardcoded, closed
+alias list — a fixed set of app names baked into source, not auto-updated as new apps get ingested —
+same silent-fallback-to-default behavior on a miss for any app not already in that list) — see
+`pega-neo4j-cypher-querying` §0 Axis A for the full mechanics, it's identical here. Never assume any
+particular app is or isn't covered by that list — check live if it matters. Get
 this wrong on `pega_log_analyzer` specifically and you silently query the **wrong live Pega
 instance's** class-hash cache — a class hash is instance-specific, so this doesn't even fail loudly,
 it just returns "not found" or (worse) a coincidental wrong match. Confirm which app/environment the
@@ -366,8 +370,8 @@ invent different section names for this category — same shape, different conte
   the tool doesn't check every field name the API actually uses (`rule_key` observed). Only fall back
   to `search_rules` after checking `raw` finds nothing either.
 - Don't assume an app from a keyword/name match in `pega-analysis-results` (no `environment` field
-  exists on these documents) — confirmed live, `ServiceRequest` matched a `Deal` rule, not the OWLM
-  one it superficially resembled. Resolve the candidate rule cross-app first (§0b), let that tell you
+  exists on these documents) — confirmed live, a name match resolved to a rule in a different app than
+  the one it superficially resembled (see §0b's worked example). Resolve the candidate rule cross-app first (§0b), let that tell you
   the environment.
 - Don't treat `log.app` on `pega-logs` as reliably present — confirmed live, it's on only ~7.4% of
   documents, and specifically absent on job-scheduler/dataflow/batch-thread entries, which is most
