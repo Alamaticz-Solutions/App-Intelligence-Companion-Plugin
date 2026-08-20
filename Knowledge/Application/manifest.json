@@ -3,7 +3,7 @@
   "skills": [
     {
       "name": "app-owlm-docs-status",
-      "description": "Where to find/generate OWLM's fuller documentation -- status of the full pega-doc-generator KT-style pass, which has not yet been run for OWLM.",
+      "description": "Status of OWLM documentation -- full KT-style pass completed August 2026, output split across 4 topic files.",
       "path": "OWLM/app-owlm-docs-status.md",
       "category": "knowledge",
       "prompt": false
@@ -26,6 +26,34 @@
       "name": "app-owlm-shared-data-model",
       "description": "Cross-app data/ruleset sharing specific to OWLM -- where a change in OWLM can have blast radius in a sibling app even though the rule itself lives in OWLM's own ruleset.",
       "path": "OWLM/app-owlm-shared-data-model.md",
+      "category": "knowledge",
+      "prompt": false
+    },
+    {
+      "name": "app-owlm-business-overview",
+      "description": "OWLM business overview -- executive summary, capabilities, personas, access roles, external integrations, and upstream data origination pipelines (Deal-to-Office, Workday-to-Staff).",
+      "path": "OWLM/app-owlm-business-overview.md",
+      "category": "knowledge",
+      "prompt": false
+    },
+    {
+      "name": "app-owlm-ui-and-case-types",
+      "description": "OWLM case type inventory (9 types, activity status), Website 20-tab and Staff Bio 5-tab UI structure, and Bulk Edits routing logic.",
+      "path": "OWLM/app-owlm-ui-and-case-types.md",
+      "category": "knowledge",
+      "prompt": false
+    },
+    {
+      "name": "app-owlm-architecture-and-tech",
+      "description": "OWLM architecture patterns (13), rule inventory, class hierarchy, ruleset stack, integrations (REST/Email/File/Service), security model, and LSA code review checklist.",
+      "path": "OWLM/app-owlm-architecture-and-tech.md",
+      "category": "knowledge",
+      "prompt": false
+    },
+    {
+      "name": "app-owlm-automation-and-logic",
+      "description": "OWLM background processing -- 11 Queue Processors, daily Job Scheduler (16 staggered tasks), 40 decision tables, flow/stage structure, and open items requiring confirmation.",
+      "path": "OWLM/app-owlm-automation-and-logic.md",
       "category": "knowledge",
       "prompt": false
     }
