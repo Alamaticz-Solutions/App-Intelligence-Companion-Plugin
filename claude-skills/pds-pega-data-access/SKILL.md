@@ -31,14 +31,23 @@ with "tool not found":
    still connecting (or genuinely unreachable) rather than framing it as an error in the plugin
    itself.
 
-## Ground every answer in both sources — graph first, live second, then combine
+## Ground every answer in both sources — graph AND live, always, by default
 
-Don't answer a Pega question from only one side, and don't jump straight to the Rule Authoring
-plugin's live tools just because they're available. The two sources answer different things, and a
-good answer usually needs both:
+**This is a default, not a suggestion.** Every non-trivial Pega question — rule lookup, case
+lookup, application walkthrough, case-type explanation, anything — runs through **both** sources
+and reports a **combined** output, even when the user's wording sounds like it's scoping you to
+one side (e.g. "just use the plugin," "don't use the graph," "only look at X"). Wording like that
+usually means "don't use my local project folder / repo," not "skip App Intelligence Companion."
+Treat App Intelligence Companion (the graph) as in-scope by default. Only skip it when the user's
+intent to exclude it is unambiguous — they name "Companion," "graph," or "Neo4j" explicitly and
+say not to use it. If there's any doubt which the user meant, ask, or run both and label sections
+so the user can see exactly what came from where.
+
+The two sources answer different things, and a good answer needs both:
 
 - **Companion (PDS Neo4j graph)** — structure, dependency closure, blast radius, history,
-  precedent, per-app tribal knowledge (`pega-app-knowledge`). Cheap, already computed, spans every
+  precedent, per-app tribal knowledge (`pega-app-knowledge`), business/functional meaning via
+  `:Feature` nodes (`pega-feature-node-retrieval`). Cheap, already computed, spans every
   environment the graph covers.
 - **Rule Authoring plugin (live Pega)** — the current, authoritative state of one specific
   connected instance: exact rule content right now, live case data, whether something actually
@@ -46,20 +55,23 @@ good answer usually needs both:
 
 Default order for any non-trivial question:
 1. Check the graph first (`pega-graph-traverser`, `pega-feature-node-retrieval`,
-   `pega-neo4j-cypher-querying`, or whichever specialist skill fits) to get structure, context, and
-   precedent before touching anything live.
-2. Only then call the Rule Authoring plugin's live tools per the routing rule below (§0) — and
-   only for what the graph can't answer (current live content, a specific case's live state, an
-   actual write). Don't re-fetch something from live Pega that the graph already has, unless the
-   graph data looks stale for this specific question.
-3. **Combine before answering.** Don't hand the user two half-answers ("the graph says X, and
-   separately, live Pega says Y") and leave them to reconcile it. Synthesize: state the answer,
-   note if graph and live data disagree (which itself is a signal — possible drift or a stale
-   graph), and be explicit about which source each part of the answer came from.
+   `pega-neo4j-cypher-querying`, or whichever specialist skill fits) to get structure, context,
+   precedent, and business/functional meaning before touching anything live.
+2. Then call the Rule Authoring plugin's live tools per the routing rule below (§0) for what the
+   graph can't answer (current live content, a specific case's live state, an actual write). Don't
+   skip this step just because the graph already returned something — live data is what confirms
+   the graph isn't stale and fills in anything the graph doesn't track (live case instances, exact
+   current rule XML, real field values).
+3. **Combine before answering — always show both, then synthesize.** Never hand back only one
+   source's data when both were in scope. Structure the answer so the reader can see provenance:
+   a section (or clearly-labeled points) for what the graph contributed, a section for what live
+   Pega contributed, and a final synthesized view that merges them. Explicitly call out any
+   disagreement between graph and live data (itself a signal — possible drift or a stale graph)
+   rather than silently picking one.
 
 Skip straight to live-only when the question is inherently live-only (e.g. "is this case currently
-assigned to anyone") — the graph has no live case state at all. Skip the graph only when there's
-truly nothing structural to add.
+assigned to anyone right now") — the graph has no live case state at all. Skip the graph only when
+there's truly nothing structural to add, and say so explicitly rather than silently omitting it.
 
 ## 0. Authority is scoped, not global — the tri-state rule
 
