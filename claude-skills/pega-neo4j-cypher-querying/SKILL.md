@@ -3,7 +3,7 @@ name: pega-neo4j-cypher-querying
 description: "Writes correct Cypher against the PDS Neo4j knowledge graph (via PDS MCP's neo4j_query/get_schema tools) on the first or second try instead of several rounds of trial and error — the two-axis environment landmine, real node/relationship schema, ref_category taxonomy, and a recipe library for the recurring asks (blast radius, root-to-leaf tree from a given rule name, rule-name disambiguation, entry-point/root discovery, Feature node lookup, class hierarchy, ruleset stack, overrides/stubs/circumstances). Grounded directly in the PDS MCP tool source and the Graph Building UI builder source, not assumption."
 ---
 
-<!-- Skill version: 1.6.0 | 2026-08-17 — three end-to-end test passes (general, OWLM-focused, hub-node/cross-environment stress test) -->
+<!-- Skill version: 1.7.0 | 2026-08-20 — generalized §0 off the legacy hardcoded-alias roster after a freshly-provisioned deployment confirmed its apps are not in that list; the skill must never require an edit just because a new app got ingested, and must never assume any specific app name is present. -->
 
 # Writing correct Cypher against the PDS graph
 
@@ -20,12 +20,16 @@ compose: this skill is what `pega-feature-node-retrieval` step 4 and its `search
 for the actual traversal Cypher.
 
 ## Nothing below is a fixed fact except where marked "structural" — re-verify live, every session
-This was written against source (`PDS MCP` repo, `Graph Building UI/backend/pds_graph` repo) and
-one live snapshot (2026-08-17: 47,615 Rule nodes, 9 distinct `environment` property values, ~180
-Rulesets). Counts and the *set* of environment values will grow as more apps get ingested. The
-mechanics (tool behavior, relationship directions, property names) come from source and don't drift
-on their own — but re-check them if a query behaves unexpectedly, since the tools themselves can be
-redeployed.
+This was written against source (`PDS MCP` repo, `Graph Building UI/backend/pds_graph` repo). The
+graph is **redeployable per client/instance** — the specific apps indexed, the rule counts, and even
+the environment-value set are properties of *this deployment*, not of the skill, and **must never be
+hardcoded into this skill or assumed from a prior session.** Treat every number below as belonging to
+one historical snapshot, never as a fixed roster: one check against a freshly-provisioned instance
+found a small number of tagged apps plus a large untagged bulk (`environment: null`, base/framework
+rules not attributed to any app) — a completely different roster and shape from an earlier snapshot
+this skill was originally written against, with no app names in common. **Always re-derive the live
+app roster with §0's discovery query before trusting any environment name — never name a specific app
+in your own reasoning unless you just saw it come back from that query this session.**
 
 ## 0. The environment landmine — two unrelated things share one name
 
@@ -34,52 +38,61 @@ different "environment" concepts** and they use different value sets:
 
 **Axis A — the tool's `environment` parameter (connection routing).** `neo4j_query(cypher,
 environment=...)` and `get_schema(environment=...)` pass this through `resolve_environment()` →
-`normalize_environment()` (`PDS MCP/src/core/config.py`), which fuzzy-matches your string against
-exactly 8 known aliases — `odpipeline, Tax, OWLM, Deal, Denovo, OARC, CCPM, HRLife` (case-insensitive,
-substring-tolerant, typo-tolerant) — to pick which Neo4j connection/driver to use.
-**If nothing matches, it silently falls back to `DEFAULT_ENV = "odpipeline"` — no error.** Passing a
-value that looks right but isn't one of the 8 (e.g. `"Office"`, `"ODH"`, or even a data-property
-value like `"DenovoImp"` verbatim — though that one happens to substring-match `"denovo"` and works)
-can silently route you to the wrong database with zero indication.
+`normalize_environment()` (`PDS MCP/src/core/config.py`), which fuzzy-matches your string against a
+**hardcoded, closed alias list baked into that source file** — a fixed set of app names chosen at
+some point in the past. **This list does not auto-update as new apps get ingested — any app not
+already in that source file at the time it was last edited will NOT match, regardless of what it's
+called.** If nothing matches, it silently falls back to a hardcoded default environment — no error.
+That means: **do not treat Axis A's alias list as the set of "known apps," and never hardcode any
+app's name into this skill as if it were guaranteed to match.** It only affects connection routing,
+and in any deployment where every app shares one Neo4j instance (verify this — see below), Axis A
+doesn't actually gate which data you can reach; only Axis B (your `WHERE` clause) does. Don't spend
+effort getting a new app added to the alias list — the correct fix for any app, named or not, is to
+skip relying on the `environment` parameter's routing/matching behavior entirely and filter
+explicitly with Axis B instead, below.
 
 **Axis B — the `r.environment` / `f.environment` property on nodes (data partition).** This is set
-in the graph builder (`Graph Building UI/backend/pds_graph/graph_builder.py`:
-`"environment": app_name`) to the literal Pega application name used for that ingest run — an
-arbitrary string, not normalized against Axis A's aliases at all. Live values as of this check:
-`HRLifeImp, ODPipeline, DenovoImp, CCPM, OWLM, OARCAPP, Deal, Office, ODH`. Note the casing/suffix
-mismatch against Axis A's tidy aliases (`HRLife` vs `HRLifeImp`, `OARC` vs `OARCAPP`) — nobody
-reconciles these, so don't assume one predicts the other.
-
-**In the current deployment these 9 environment values are all reachable from one shared
-connection** — so Axis A mostly doesn't matter for read queries once you're connected, but Axis B
-(the property filter in your `WHERE` clause) is what actually scopes your results. Get Axis B wrong
-and you silently get cross-app-contaminated results, not an error.
-
-**Live-verify Axis B before filtering anything:**
+in the graph builder to the literal application name used for that ingest run — an arbitrary string
+per deployment, not normalized against Axis A's aliases at all, and not limited to any fixed list.
+This is the value that actually scopes a query to one app. **Always discover it live, every session,
+regardless of whether you've seen this deployment before:**
 ```cypher
 MATCH (r:Rule) RETURN DISTINCT r.environment AS env, count(r) AS n ORDER BY n DESC
 ```
-Use exactly what this returns. Don't reuse the list above from memory, and don't trust the tool
-docstring's example list (`'odpipeline', 'Tax', 'OWLM', 'Deal', 'Denovo', 'OARC', 'CCPM', 'HRLife'`)
-as if it were the property's value set — that list is Axis A's aliases, not Axis B's real data.
+Use exactly what this returns, verbatim, casing included — never reuse an app-name list from a prior
+session or from this skill's own examples, and don't trust a tool docstring's example alias list as
+if it were the real property value set (that list is Axis A's legacy aliases, not Axis B's live
+data). A `null` env in the results means untagged/shared rules — decide per-question whether those
+belong in scope (usually not, for an app-scoped question).
+
+**Whether Axis A matters at all depends on the deployment — check, don't assume.** If every app
+shares one Neo4j connection, Axis A's routing is a no-op for read queries once connected, and Axis B
+is 100% of what scopes your results. If a deployment instead uses per-app Neo4j instances, Axis A's
+routing becomes load-bearing again and an app missing from the alias list may be genuinely
+unreachable — confirm which situation you're in (a single quick connectivity check against any
+Axis-B-discovered app name) before assuming the "just filter with Axis B" workaround is sufficient.
 
 **Axis A can also get inferred from your Cypher text itself, not just an explicit parameter —
 confirmed live.** `resolve_environment()` falls back to `infer_environment_from_text(cypher)` when no
 `environment` argument is passed, and that scans the **entire Cypher string** for an alias substring
 — including inside string literals that have nothing to do with intent. A query with no `environment`
-argument, filtering nothing by environment, but containing a literal `pzinskey` value like `'...
-PDS-OWLM-WORK-...'` gets Axis A silently resolved to `OWLM` purely because `"owlm"` appears as a
-substring — which then trips the "explicit environment filter required" guard on a query that never
-meant to be environment-scoped at all. If you get that error on a query that doesn't look like it
-should need one, this is why — add the `WHERE r.environment = '<Env>'` clause (now required whether
-you intended it or not), don't fight the inference.
+argument, filtering nothing by environment, but containing a literal `pzinskey` value that happens to
+contain one of Axis A's hardcoded alias substrings gets silently resolved to that alias purely from
+the substring match — which then trips the "explicit environment filter required" guard on a query
+that never meant to be environment-scoped at all. If you get that error on a query that doesn't look
+like it should need one, this is why — add the `WHERE r.environment = '<Env>'` clause (now required
+whether you intended it or not), don't fight the inference.
 
-**If `r.environment` is ever null or missing on some node** (checked live: 0 of 47,615 `Rule` nodes
-currently, including stubs — the builder stamps it unconditionally per ingest run, so this should be
-structural, not just a snapshot fact), `WHERE r.environment = '<Env>'` **excludes that node silently**
-rather than erroring — same shape of failure as everything else in this section. If a rule you expect
-to find isn't turning up, `MATCH (r:Rule {pzinskey: '<x>'}) RETURN r.environment` before assuming it's
-not in the graph at all.
+**`r.environment` can absolutely be null on real nodes — this is NOT a structural guarantee, it
+varies per deployment.** One snapshot showed zero nulls (every rule stamped with an environment on
+ingest); a different deployment showed the *opposite* — the large majority of `Rule` nodes untagged
+(`environment: null`), alongside a small number of tagged-app rules. Don't assume either behavior;
+check `MATCH (r:Rule) RETURN r.environment IS NULL AS is_untagged, count(*) AS n` (or the DISTINCT
+query above, which already surfaces a `null` row if present) before relying on "every rule has an
+environment." Whichever way it comes out, `WHERE r.environment = '<Env>'` **excludes non-matching/null
+nodes silently** rather than erroring — same shape of failure as everything else in this section. If
+a rule you expect to find isn't turning up, `MATCH (r:Rule {pzinskey: '<x>'}) RETURN r.environment`
+before assuming it's not in the graph at all — it may be there but untagged.
 
 ### App-scoped vs. whole-graph queries — two legitimate patterns, pick deliberately
 
@@ -96,7 +109,7 @@ MATCH (r:Rule) WHERE toLower(r.rule_name) CONTAINS toLower('<name fragment>')
 RETURN r.pzinskey, r.rule_name, r.environment, r.rule_type, r.class_name
 LIMIT 50
 ```
-Confirmed live: this runs cleanly across all 9 environments with no guard interference, **as long as
+Confirmed live: this runs cleanly across every environment in the deployment with no guard interference, **as long as
 the query text doesn't happen to contain an Axis-A alias substring anywhere** (§0 above). Always
 `RETURN r.environment` as a column on a whole-graph query — not just to see where each row came from,
 but because it doubles as insurance against the next point.
@@ -198,15 +211,15 @@ structural/impact-analysis questions ("does anything reference X"), stubs are fi
 they still represent a real edge, just an unexplored target.
 
 **Zero outgoing `REFERENCES` doesn't always mean "calls nothing" even for a fully-traversed,
-non-stub rule — caught live for `Rule-Async-QueueProcessor` specifically.** Checked all 8 queue
-processors in `OWLM`: 5 have exactly 1 outgoing `REFERENCES` edge (to their processing activity), but
-3 (`ProcessMODInternalRequest`, `ProcessWebsiteMigrationRequest`, `UpdateMDMRecordInTable`) have
-**0** — despite `is_stub=false`, `fetch_failed=false`, `traversed=true` on all of them. This looks
-like a genuine reference-extraction gap for this rule type (or these specific instances), not a stub
-or a query problem. If a forward-closure/blast-radius query on a queue-processor (or any rule type
-you haven't checked before) comes back with 0 hits despite the root being fully traversed, don't
-conclude "calls nothing" from the graph alone — confirm via `pega-live-gap-fill`'s `get-rule`
-(live Pega content) before reporting it as a dead end.
+non-stub rule — caught live for `Rule-Async-QueueProcessor` specifically.** In one app checked,
+several of its queue processors had exactly 1 outgoing `REFERENCES` edge (to their processing
+activity), but a few others had **0** — despite `is_stub=false`, `fetch_failed=false`,
+`traversed=true` on all of them. This looks like a genuine reference-extraction gap for this rule
+type (or these specific instances), not a stub or a query problem, and isn't tied to any one app —
+re-verify per app rather than assuming a prior app's finding transfers. If a forward-closure/
+blast-radius query on a queue-processor (or any rule type you haven't checked before) comes back with
+0 hits despite the root being fully traversed, don't conclude "calls nothing" from the graph alone —
+confirm via `pega-live-gap-fill`'s `get-rule` (live Pega content) before reporting it as a dead end.
 
 ## 4. `ref_category` taxonomy — filter before you traverse, not after
 
@@ -223,16 +236,16 @@ these are all **low-volume** (tens of occurrences, not thousands) — easy to mi
 volume-sorted list, but leaving one out means a root of that type returns **zero** closure/blast-radius
 results regardless of hop count, not "fewer" results:
 - `qp:activity` (53 occurrences graph-wide) — a queue-processor's (`Rule-Async-QueueProcessor`) link
-  to its processing activity. Verified live in `OWLM`: without this, closure on
-  `ProcessLocationCRUDRequest` returns empty despite a real, single outgoing edge.
+  to its processing activity. Verified live on one app's queue processor: without this, closure
+  returns empty despite a real, single outgoing edge.
 - `jobsched:activity` (33) — the job-scheduler (`Rule-Async-JobScheduler`) equivalent. Verified live
-  in `OWLM` on `ProcessMODDailyScheduledTask`.
+  the same way on one app's job scheduler.
 - `js:flowAction` (1, graph-wide — genuinely this rare) — another job-scheduler entry hook; include it
   even at this volume, since "rare" here means "rarely applicable," not "rarely correct."
 - `casetype:starting_flow` (192) — a case type's entry flow, the case-type analog of the two above.
-  Not yet verified populated in `OWLM` specifically (checked live: zero edges of this category
-  originate there) — include it anyway since it's clearly the right category by name and has real
-  volume elsewhere; don't be surprised if it's sparse for a given app.
+  Not verified populated in every app checked (one app had zero edges of this category) — include it
+  anyway since it's clearly the right category by name and has real volume elsewhere; don't be
+  surprised if it's sparse for a given app.
 
 **Stage-flow categories are dynamic, not enumerable.** `casetype:stage_flow:<Stage Name>` and
 `casetype:stage_skip_when:<Stage Name>` each generate a distinct category **per literal stage name**
@@ -259,10 +272,10 @@ suspiciously few hits, same discipline as the entry-point categories above.
 
 **Caught live across two end-to-end test passes (2026-08-17)**: the original list omitted every
 `fa:*` category (false negative on `ValidateStaffInformation`, a Validate rule with two genuine
-FlowAction callers — zero blast-radius hits until widened), then a second pass on `OWLM` found
-`qp:activity` and `jobsched:activity` missing too (false negative on **every** queue-processor and
-job-scheduler root — not a rare edge case, a structural gap affecting 2 of the 3 root types Feature
-nodes commonly use). Checked `fa:pyConfirmHarness`/`fa:pySectionReference` specifically and left them
+FlowAction callers — zero blast-radius hits until widened), then a second pass on a different app
+found `qp:activity` and `jobsched:activity` missing too (false negative on **every** queue-processor
+and job-scheduler root — not a rare edge case, a structural gap affecting 2 of the 3 root types
+Feature nodes commonly use). Checked `fa:pyConfirmHarness`/`fa:pySectionReference` specifically and left them
 out on purpose — UI-composition (which harness/section shows), not control-flow. **Treat an empty
 blast-radius/closure result as "check the unfiltered edges before trusting the empty set," always** —
 this has now produced two real false negatives, not a hypothetical risk.
@@ -271,8 +284,9 @@ this has now produced two real false negatives, not a hypothetical risk.
 
 **Hub nodes exist, but they did not actually blow up in testing — the original version of this
 warning overstated the risk.** `REFERENCES` in-degree across `:Rule` averages ~5.7 but peaks at
-**5,579** for the single most-referenced rule (`pxTextInput`, a platform HTML property, in
-`HRLifeImp`). **Empirically tested directly on that exact node**: a `*1..4` traversal returned in
+**5,579** for the single most-referenced rule (`pxTextInput`, a platform HTML property — a base Pega
+framework rule, not app-specific, so this scale finding should generalize across apps). **Empirically
+tested directly on that exact node**: a `*1..4` traversal returned in
 normal time both with §4's `ref_category` filter (200-row cap reached, as expected) and **fully
 unfiltered** (7,467 distinct callers, no filter at all) — no hang, no timeout, at the true worst case
 this graph currently has. At ~47K total `Rule` nodes, this graph just isn't large enough for the
