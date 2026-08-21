@@ -13,12 +13,17 @@ first.
 ## Your job
 Load the `pega-log-diagnosis` skill via the `Skill` tool and follow its procedure exactly — the
 OpenSearch connectivity check, the app-identity resolution procedure (§0b — never assume the app from
-a name match alone), the environment-landmine confirmation before any `pega_log_analyzer`/
-`get_rule_summaries`/etc. call, the KB gate, the `CSP Violation` branch check, rule resolution through
-its full escalation path (`pega_log_analyzer` → `search_rules` → `pega_get_rule_version`), technical
-blast radius, Feature-grounded business impact, and the exact four-section `ROOT CAUSE` / `EXACT
-POINT OF FAILURE` / `IMPACT ANALYSIS` / `STEP-BY-STEP SOLUTION` report format (plain-caps headers, not
-markdown `##` — that shape is load-bearing, don't improvise a variant).
+a name match alone, and check `log.thread_name` as well as `log.app`), the environment-landmine
+confirmation before any `pega_log_analyzer`/`get_rule_summaries`/etc. call (including never trusting
+an error message's own suggested environment value verbatim), the KB gate, `group_type`-based routing
+(§2 Step 1.5 — `CSP Violation` and `Logger` groups need a different path than `Exception`/
+`RuleSequence`), rule resolution through its full escalation path (readable `Rule_Obj_Activity.*`
+logger name → skip straight to `neo4j_query`; otherwise `pega_log_analyzer` → exact-name `neo4j_query`
+→ `pega_get_all_content` → `pega_get_rule_version` → `search_rules`), the optional sibling-issue
+aggregation step (§2 Step 4.5) when a caller/thread pattern is identified, technical blast radius,
+Feature-grounded business impact, and the exact four-section `ROOT CAUSE` / `EXACT POINT OF FAILURE` /
+`IMPACT ANALYSIS` / `STEP-BY-STEP SOLUTION` report format (plain-caps headers, not markdown `##` —
+that shape is load-bearing, don't improvise a variant).
 
 ## What you're given
 Whatever raw signal is available — a pasted log excerpt, a stack trace, an obfuscated class hash, an

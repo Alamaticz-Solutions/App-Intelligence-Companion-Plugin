@@ -132,6 +132,13 @@ it does, the query text doesn't actually contain that column literally (e.g. it'
 alias or a computed field) — add a harmless comment (`// environment: intentionally whole-graph`) as
 the guaranteed fallback, same technique as §6's Class/App/Ruleset recipes use for the same reason.
 
+**When the guard does correctly require a filter, don't trust the error message's own suggested
+value verbatim — confirmed live (via `pega-log-diagnosis`), it can propose a shortened/aliased form
+that isn't the actual `r.environment` string on real nodes**, silently filtering to zero results if
+used as-is. Use the exact value already confirmed from a node's own `r.environment` field earlier in
+the same investigation (Axis B, per §0 above), not the value the error text proposes — the error is
+correct that a filter is required, not necessarily correct about what string belongs in it.
+
 **Which recipes in §6 are whole-graph by design, already**: "Discover current environment coverage,"
 "Find all Feature nodes," and §4's `ref_category` taxonomy query. Everything else in §6 is app-scoped
 by design — don't strip their `WHERE r.environment=` clause to "make them whole-graph" without

@@ -3,7 +3,14 @@ name: pega-log-diagnosis
 description: "Diagnoses a Pega production error end-to-end from a log excerpt/stack trace/class hash — root cause, exact point of failure, technical blast radius, and (the part IdentifAI's own diagnosis agent doesn't do) business-process impact grounded in :Feature nodes. Composes pega-neo4j-cypher-querying and pega-feature-node-retrieval rather than duplicating them. Same tool surface as IdentifAI-Graph's diagnosis_agent.py (verified by source), so this works even when the IdentifAI web app itself isn't open."
 ---
 
-<!-- Skill version: 1.7.0 | 2026-08-17 — pega_get_rule_version elevated: found a rule the graph and cross-app search both missed -->
+<!-- Skill version: 1.8.0 | 2026-08-21 — folded in case-study-2026-08-21-icims-and-operatorid.md's
+     findings: readable Rule_Obj_Activity.* logger names skip pega_log_analyzer entirely; reordered
+     the name-known/type-unknown escalation ladder (pega_get_all_content before pega_get_rule_version);
+     Python-slice technique for searching overflowed results; referenced_rules as a free adjacency
+     list; group_type-specific routing for RuleSequence/Logger (not just Exception/CSP Violation);
+     log.thread_name as an app-identity/caller signal; optional sibling-issue aggregation step; and a
+     correction on how tightly CorrelationId/RequestorId matching should be trusted as "one incident." -->
+<!-- Prior: 1.7.0 | 2026-08-17 — pega_get_rule_version elevated: found a rule the graph and cross-app search both missed -->
 
 # Diagnosing a Pega error: logs → rule → graph → business process
 
@@ -111,21 +118,48 @@ bridge, no translation needed. But `log.app` is populated specifically on sessio
 thread serving multiple apps' queued work at once, not scoped to one app. Confirmed on two different
 job-scheduler-thread error groups: both had `log.app` missing on every one of their raw log lines.
 
-**`log.RequestorId` doesn't help either** — tested live: a requestor ID from an app-less log line had
-three other log lines in the same session, all equally app-less (all `JOBSCHEDULER_THREAD_10`
-entries). Correlating across a requestor's other log lines is a reasonable idea that didn't pan out on
-this data; don't assume it will elsewhere without checking.
+**`log.RequestorId` doesn't help for app identity specifically** — tested live: a requestor ID from an
+app-less log line had three other log lines in the same session, all equally app-less (all
+`JOBSCHEDULER_THREAD_10` entries). Correlating across a requestor's other log lines didn't pan out for
+*app identity* on that data; don't assume it will elsewhere without checking. (It's still useful for a
+different purpose — finding sibling issues from the same caller/batch run — see the aggregation step
+in §2 Step 4.5, with the important caveat immediately below about how broad a signal it actually is.)
+
+**`log.thread_name` is a stronger, more reliable signal than `log.app` for exactly the cases where
+`log.app` is missing — confirmed live, present and informative on 100% of docs sampled for a
+batch/`DataFlow`-shaped error, at scale (15+ distinct docs, all consistent).** For entries running
+under `DataFlow-Service-*`/`JobSchedulerExecution`-style pooled batch threads, the thread name itself
+often names the actual Data Flow/service responsible (e.g.
+`DataFlow-Service-PickingupRun-pyProcessSLA:<N>, Access group: [PRPC:AsyncProcessor]`) — check this
+field on the raw doc *before* falling back to the cross-app graph name search in step 2 below. Note:
+`log.thread_name` is `keyword`-typed in the live mapping — a `match_phrase` query against it returns
+zero hits with no error (silent, not loud); use `wildcard: {"log.thread_name": "*substring*"}`
+instead. This is the general OpenSearch field-mapping trap worth internalizing: **when an
+`opensearch_search_index` query returns zero hits and zero errors, that's not evidence of "no data" —
+it's a prompt to check `opensearch_get_index_mapping` before concluding anything**, the same way
+`group_signature`'s missing `.keyword` sub-field (§2 Step 0) already requires checking the mapping
+rather than assuming.
+
+**Caution on `CorrelationId`/`RequestorId` matches — useful, but not a tight "one incident" signal.**
+A shared `CorrelationId`/`RequestorId` across groups can mean they fired in the same processing run —
+but confirmed live, a single pooled batch `RequestorId` produced 497 log lines spanning over an hour
+across four structurally different activities, because **a pooled batch worker processes many
+unrelated case partitions across its lifetime.** Treat a match as "worth checking what else this
+worker's run touched" (a lead), not as proof multiple symptoms are "the same incident" — that stronger
+claim needs the actual call chain traced, not just a shared ID.
 
 **Given all of the above, resolving app identity is a procedure, not a lookup — in this order:**
 1. Check `log.app` on the raw log line(s) first (via `opensearch_search_index` on `pega-logs`, or via
    a group's `raw_log_ids` if starting from `pega-analysis-results`) — free and authoritative when
    present, but expect it to be missing for anything batch/job-scheduler/dataflow-shaped.
-2. If absent (the common case for infrastructure-flavored errors), **extract every rule/class/activity
-   name visible in the message or stack trace** and run an **unscoped, cross-app** `neo4j_query` name
-   search (`pega-neo4j-cypher-querying`'s whole-graph guidance — no `WHERE r.environment=` filter) — let the
-   graph tell you which environment(s) actually have a matching rule, rather than guessing the app from
-   what the name superficially resembles.
-3. **A name that looks app-specific can belong to a different app entirely — confirmed live, not
+2. If absent, check `log.thread_name` next (see above) — it's often populated exactly where `log.app`
+   isn't, and can name the responsible service directly.
+3. If both are absent (the common case for infrastructure-flavored errors), **extract every
+   rule/class/activity name visible in the message or stack trace** and run an **unscoped, cross-app**
+   `neo4j_query` name search (`pega-neo4j-cypher-querying`'s whole-graph guidance — no `WHERE
+   r.environment=` filter) — let the graph tell you which environment(s) actually have a matching
+   rule, rather than guessing the app from what the name superficially resembles.
+4. **A name that looks app-specific can belong to a different app entirely — confirmed live, not
    hypothetical.** In one incident, searching for a case-type-sounding name surfaced a group whose
    rule turned out to belong to a *different* app with its own, separately-named case type of a
    similar shape — only caught because the cross-app search step ran before assuming the first app
@@ -133,7 +167,7 @@ this data; don't assume it will elsewhere without checking.
    across apps) and applies to whichever apps this deployment actually has. If the cross-app search
    returns hits in more than one environment for the same name, that's a real ambiguity to surface,
    not something to silently resolve by picking one.
-4. If the graph has nothing either, that's exactly `pega-live-gap-fill`'s scenario — check live via the
+5. If the graph has nothing either, that's exactly `pega-live-gap-fill`'s scenario — check live via the
    authoring plugin before concluding the rule doesn't exist anywhere.
 
 ## 1. The environment landmine applies here too — same mechanism, wider blast radius
@@ -148,6 +182,17 @@ this wrong on `pega_log_analyzer` specifically and you silently query the **wron
 instance's** class-hash cache — a class hash is instance-specific, so this doesn't even fail loudly,
 it just returns "not found" or (worse) a coincidental wrong match. Confirm which app/environment the
 error actually came from before calling any of these tools, not after.
+
+**`neo4j_query` enforces this as a hard error, not just a best-practice suggestion — and its own error
+message's suggested value can itself be wrong.** Confirmed live: a blast-radius query without an
+explicit `WHERE r.environment=` clause failed with `"neo4j_query requires an explicit environment
+filter for '<value>'. Add WHERE r.environment = '<value>' ..."` — but the value the error message
+suggested was a shortened/aliased form, not the actual property value on real nodes (which carried a
+longer/different form). Using the error message's own suggested value verbatim would have silently
+filtered to zero results. **Always use the exact `r.environment` string already confirmed from the
+rule's own data earlier in the investigation (e.g. from step 2/3's `get_rule_summaries`/`neo4j_query`
+result), never the value an error message proposes** — the error is right that a filter is required,
+not necessarily right about what string to put in it.
 
 ## 2. Procedure
 
@@ -202,14 +247,20 @@ discipline as `pega-feature-node-retrieval`) → report it directly, cite it as 
 index had only 2 documents at last check — a miss here is the common case, not a signal anything's
 wrong.
 
-**Step 1.5 — Confirm this is actually a rule-execution error before assuming Steps 2-5 apply.**
-Confirmed live: `group_type` on `pega-analysis-results` isn't always "a rule broke" — the observed
-values are `Exception` (235 of 252 checked live), `RuleSequence` (15), and `CSP Violation` (2).
+**Step 1.5 — Route by `group_type` before assuming the standard rule-resolution path applies.**
+Confirmed live: `group_type` on `pega-analysis-results` isn't always "a rule broke," and even when it
+is, **what's actually useful to read depends on which `group_type` it is** — check this field first,
+before choosing a tool path. Observed values in one deployment: `Exception` (~97%, the majority
+case), `RuleSequence`, `CSP Violation`, and `Logger` (rarest, a catch-all) — treat this as a set that
+can vary per deployment, not a fixed enum.
+
 **`CSP Violation` groups have no rule, no class hash, and no stack trace at all** — they're the
 *browser* blocking a page resource (e.g. `"CSP Violation | Blocked: https://fonts.googleapis.com |
 Violated: style-src-elem"`) because Pega's Content-Security-Policy header doesn't allow-list that
 host under that directive. Steps 2-4 (resolve a rule, get its logic, blast-radius) are meaningless
-here — there is no failing rule. Instead:
+here — there is no failing rule. The `message` field is fully self-contained (UserID, blocked source,
+violated directive, the entire CSP policy text) — no `pzInsKey`, no `neo4j_query`, no
+`pega_get_rule_xml` needed, just:
 ```
 pega_get_all_content(search_text="<the blocked domain, e.g. fonts.googleapis.com>", environment="<Env>")
 ```
@@ -221,9 +272,43 @@ resource is legitimate) or removing the reference to it (if it's stale/unneeded)
 resembling the rule-logic diagnosis Steps 2-5 are built for. Skip straight to a report shaped around
 this, don't force a `CSP Violation` group through the rule-resolution steps.
 
-`Exception`/`RuleSequence` groups are the shape Steps 2-5 are actually built for — proceed normally.
+**`RuleSequence` groups pre-decode the rule chain — don't hand-parse `group_signature`.** Its
+`group_signature` looks like a pipe-delimited chain of `com.pegarules.generated.*` class-hash steps,
+but confirmed live (on multiple samples, including a 6-rule chain), **the grouper has already
+extracted this into a clean, separate `rules[]` field on the same document**:
+```json
+"rules": [
+  {"rule_name": "<name>", "class_hash": "<hash>"},
+  {"rule_name": "<name>", "class_hash": "<hash>"}
+]
+```
+Read `rules[]` directly instead of parsing `group_signature` by hand — each `{rule_name, class_hash}`
+pair is ready to feed `pega_log_analyzer` (or the readable-name shortcut in Step 2 below) with no
+string-splitting.
 
-**Step 2 — Resolve the failing rule.** If the trace has an obfuscated Java class name:
+**`Logger` groups can be genuinely empty except the logger name and thread/correlation fields.**
+Confirmed live on a real sample: both `message` and `exception_message` were empty strings on the raw
+log doc (check the raw doc directly, not just the group's `representative_log`, before concluding
+there's nothing there). When this happens, the only path left is the thread/correlation
+cross-referencing described in §0b above and the sibling-aggregation step below (§2 Step 4.5) — there
+may genuinely be nothing else to fetch, and that's fine to report as such rather than treated as a
+failure of the procedure.
+
+`Exception` groups are the shape Steps 2-5 are directly built for — proceed normally, using the
+readable-logger-name shortcut in Step 2 when applicable.
+
+**Step 2 — Resolve the failing rule.** First check `representative_log.logger_name` (group doc) or
+`log.logger_name` (raw doc) for a **readable** form before reaching for the hash-decode path at all —
+confirmed live, when the logger name is already dotted as `Rule_Obj_Activity.<RuleName>.<ClassName
+with dashes as underscores>.<MethodOrStep>` (or the equivalent `Rule_Obj_ActivityStep`/similar
+dotted pattern for other rule types), it's directly decodable by string-parsing, no lookup needed —
+**parse the rule name and class straight out of the string and skip to the exact-name `neo4j_query`
+search below.** Only fall back to `pega_log_analyzer` when the logger name is the generic,
+non-decodable `com.pegarules.generated.*` form (a *generated* internal class name — itself a signal
+the failing code may be OOTB platform infrastructure, not a customer rule).
+
+If the trace has an obfuscated Java class name (the `com.pegarules.generated.*` form, or one already
+pre-extracted into `rules[]` for a `RuleSequence` group per Step 1.5 above):
 ```
 pega_log_analyzer(request_class="<class name from the trace>", environment="<confirmed via §1>")
 ```
@@ -234,29 +319,32 @@ The tool only checks the API response for `pzInsKey`/`pxInsKey`/`pyInsKey`/`insK
 usable key before treating `pzInsKey: null` as a real miss** — a large fraction of "misses" may just
 be this extraction gap, not the class-hash cache actually failing.
 
-If `raw` genuinely has nothing usable either — the class-hash cache is per-instance and can be
-stale/cleared since the error happened — fall back to `search_rules` on whatever rule-name/
-exception-message fragments are visible in the trace, then confirm the candidate against the trace's
-class/method names before treating it as the failure point.
+**When you have an exact rule name (from a readable logger name, not a hash) but its `rule_type` is
+unknown, the efficient escalation order — confirmed live, reordered from a session where the old
+order wasted several calls — is:**
+1. **Exact-name `neo4j_query`** (free, instant): `MATCH (r:Rule) WHERE toLower(r.rule_name) CONTAINS
+   toLower('<name>') RETURN r.pzinskey, r.rule_name, r.rule_type, r.class_name, r.environment,
+   r.is_stub LIMIT 10`. Often resolves on the first try.
+2. **`pega_get_all_content(search_text="<exact name>")`** — full-text/instance search
+   (`D_AllContentSearch`), type-agnostic. Confirmed live: this succeeded immediately on a rule where
+   six different `rule_type` guesses to `pega_get_rule_version` all came back empty, because
+   `pega_get_all_content` doesn't require guessing the correct `pyRuleObjClass` up front the way
+   `pega_get_rule_version` does. For a rule whose type you're genuinely unsure of, start here, not at
+   step 3 below.
+3. **`pega_get_rule_version(rule_name=..., rule_type=...)`** — once you have a specific `rule_type`
+   guess worth confirming. Confirmed live, it can also succeed where both of the above miss entirely
+   (a rule on a bare ruleset like `SystemMonitoring`, used directly by a scheduled job rather than
+   belonging to a listed application, invisible to both the graph and app-scoped `search-rules`) — so
+   don't skip it just because steps 1-2 found nothing. **Returning `[]` across several `rule_type`
+   guesses is not strong evidence the rule doesn't exist — it's evidence you haven't guessed the
+   right type yet.** Try a few plausible type variants before concluding absence.
+4. **`search_rules`** (semantic) — last resort for fuzzy/partial names where you don't have an exact
+   string to begin with; confirmed live to score below even the "medium" threshold on a fetch that
+   `pega_get_all_content` found immediately, so don't lead with this when an exact name is in hand.
 
-**If a candidate rule name looks right but neither the graph nor cross-app `search-rules` finds it,
-try `pega_get_rule_version` before concluding it's absent — confirmed live, it found a rule that
-*both* of those missed.** A rule on the `SystemMonitoring` ruleset (`ProcessExceptionCases_PDC`,
-class `SM-Monitoring-Data-SnowTicketMetrics`) returned nothing from an unscoped `neo4j_query` name
-search **and** nothing from `pega-live-gap-fill`'s `search-rules(allApps="true")` — both came back
-empty — yet `pega_get_rule_version` found it immediately, `pyRuleAvailable: "Yes"`:
-```
-pega_get_rule_version(rule_name="<candidate name>", rule_type="<pyRuleObjClass, e.g. Rule-Obj-Activity>")
-```
-The likely reason: the graph only covers the 9 tracked PDS app environments, and `search-rules`
-appears scoped to applications the operator's access group can see — a bare ruleset like
-`SystemMonitoring`, used directly by a scheduled job rather than belonging to one of the 12 listed
-applications, falls outside both. **Treat `pega_get_rule_version` as a check to run before declaring
-a rule absent, not only after both other paths have already failed** — it queries rule existence
-directly (`D_GetListOfRelatedRules`) rather than through an app-scoped or semantic-search lens, and
-can succeed exactly where both of those miss. Only after `pega_get_rule_version` also comes back
-empty across a couple of plausible name variants (case, underscores, common suffixes) is "the rule
-doesn't exist under that name at all" the honest conclusion.
+If every layer above genuinely comes back empty — the class-hash cache is per-instance and can be
+stale/cleared since the error happened — that's when "the rule doesn't exist under that name/type at
+all" becomes the honest conclusion, not before.
 
 **Step 3 — Confirm the rule's actual logic.** Once you have a `pzInsKey`:
 ```
@@ -265,22 +353,87 @@ get_rule_summaries(pz_ins_keys=["<pzInsKey>"], environment="<Env>")
 Three possible outcomes, not two — confirmed live: `source: "dynamo_cache"` (fine for most answers,
 escalate if high-stakes), `source: "freshly_generated"` (fine as-is), or **`source: "not_cached"`**
 with no summary content at all, just a message pointing at `pega_get_rule_xml`. Treat `not_cached` as
-an unconditional escalation, not an optional one — there's nothing to read otherwise:
+an unconditional escalation, not an optional one — there's nothing to read otherwise. **Expect this
+to be the common case, not a rare edge case**: confirmed live, `not_cached` fired on every single
+non-trivial rule fetched across a full session (3 for 3) — assume you'll need `pega_get_rule_xml` for
+any rule that hasn't been diagnosed before, and budget for it up front rather than being surprised by
+it:
 ```
 pega_get_rule_xml(pz_ins_key=..., app_name=..., app_version=..., environment=...)
 ```
-**This can return enough content to overflow this session's own tool-output budget** (observed live:
-a 59,947-character result got redirected to a saved file instead of returned inline). The saved file
-can itself be one giant unbroken line — `Read` with a line-based `limit` may still exceed the token
-budget, and `Grep` may not find tag boundaries if the content isn't formatted the way a pattern
-expects. If a full read isn't economical, use `Grep` with a narrow, specific pattern (a known tag
-name, a keyword from the error) rather than trying to read the whole file, and say plainly if you
-could only read part of it — don't silently drop this and treat the escalation as if it failed. Never
-call `get_rule_summaries` on a rule marked `is_stub=true` — reference it by name only.
+**Check the response's `referenced_rules` array before reading any XML content at all.** Every
+`pega_get_rule_xml` response includes it (rule name/type/class/pzInsKey for everything the fetched
+rule calls) — confirmed live, this was more useful than the XML body itself for tracing a call chain:
+it found the next rule(s) to chase directly, no XML parsing needed. It's a free, already-parsed
+adjacency list — cheaper than grepping for plausible keywords inside a large XML body. Note:
+`referenced_rules`' own type label for an entry and the graph's `r.rule_type` property for that same
+rule can disagree (observed live: one rule listed as "Data Transform" in `referenced_rules` was
+actually `Rule-Obj-Model` per the graph) — trust the graph property if you need the exact type for a
+follow-up `pega_get_rule_version` call, but `referenced_rules`' looser label is still fine for
+deciding *which* rule to chase next.
+
+**This can return enough content to overflow this session's own tool-output budget — expect this for
+any real Activity/Model, not as an edge case** (confirmed live: every non-trivial XML fetch across a
+full session overflowed; only the smallest, a simple Utility Function, stayed inline). This is a
+property of large results in general, not specific to `pega_get_rule_xml` — `opensearch_search_index`
+results overflow the same way (§2 Step 0 already notes this for that tool).
+
+**When you do need to search inside an overflowed file, use windowed Python slicing as the
+first-choice method, not `Grep`:**
+```python
+with open(<file>, encoding='utf-8') as f:
+    content = f.read()
+import re
+idxs = [m.start() for m in re.finditer(re.escape('search_term'), content, re.IGNORECASE)]
+for i in idxs:
+    print(content[max(0,i-500):i+300])   # print a window, not the whole line
+```
+The saved file is typically JSON with the entire rule content as one unbroken line (no real
+newlines preserved) — confirmed live, `Grep` shows `[Omitted long matching line]` instead of content
+in this shape: you get confirmation a match exists with **zero visibility into what's around it**.
+Grep's usual advice ("use a narrow, specific pattern") doesn't help here — the failure mode is "can't
+see match context at all," not "too many irrelevant matches." The Python approach is strictly better
+for this file shape: exact offsets, a controllable context window, no line-length ceiling, and —
+important for reporting a true negative honestly — **it lets you *count* occurrences and confirm zero
+matches across the full string**, rather than guessing whether Grep's silence meant "not found" or
+"found but omitted." A confirmed zero-match result (checked this way) is a trustworthy finding worth
+stating plainly ("this mapping doesn't happen in this rule"), not a gap to hedge about. Never call
+`get_rule_summaries` on a rule marked `is_stub=true` — reference it by name only.
 
 **Step 4 — Technical impact.** Run `pega-neo4j-cypher-querying`'s blast-radius recipe rooted at this
 `pzInsKey` — don't re-derive the Cypher, that skill already has the `ref_category` noise filter and
 the hub-node performance guard worked out. This answers "what else breaks."
+
+**Step 4.5 — Optional, high-value: check what else the same caller/thread touched.** Once a
+caller/thread pattern is identified (via `log.app`, `log.thread_name`, or the resolved rule), a cheap
+aggregation across all ERROR-level docs sharing that caller can surface sibling issues worth
+flagging, even when the user only asked about one specific group:
+```
+opensearch_search_index(index="pega-logs", query={"size": 0, "query": {"bool": {"must": [
+  {"wildcard": {"log.thread_name": "*<caller/service name>*"}}, {"term": {"log.level": "ERROR"}}
+]}}, "aggs": {"messages": {"terms": {"field": "normalized_exception_message", "size": 20}}}})
+```
+Confirmed live, this is worth the ~1 extra tool call: one such aggregation surfaced 15 distinct error
+signatures sharing a single caller, several more consequential than the one originally asked about —
+none of it visible from the single group being diagnosed. Remember the CorrelationId/RequestorId
+caveat from §0b above, though: a shared caller is a lead to check, not proof the sibling issues are
+"the same incident."
+
+**If a group's own `stack_trace` is empty everywhere it's stored, that's not necessarily "no stack
+trace exists for this failure" — widen the aggregation before concluding that.** Confirmed live:
+check the group's `representative_log.stack_trace` *and*, if accessible, all of its `raw_log_ids`
+(not just one sample) before treating an empty trace as final. When it's genuinely empty everywhere,
+try aggregating on the same `log.RequestorId` (not filtered to this one `group_signature`) across
+*all* ERROR docs — this can surface a **sibling group one call-frame deeper** that has the stack
+trace this group's own data structurally never captured (observed live: a generic OAuth2-wrapper
+group with no trace anywhere in its own data had a sibling group, found this way, whose fully
+populated trace named a completely different, readable custom rule several frames below the same
+underlying failure). When this happens, **the sibling can represent the same root cause manifesting
+as an apparently unrelated business-process failure** — grouping by exception-message text
+under-represents true blast radius when the actual failure point is a shared low-level dependency (an
+auth/connector config, an OOTB utility): different call depths produce different-looking
+`group_signature` values for what is, underneath, one problem. Worth surfacing explicitly in the
+report when found, not just folded silently into one group's diagnosis.
 
 **Step 5 — Business impact (the gap this skill closes).** Run `pega-feature-node-retrieval`'s procedure
 starting from its step 1 existence check, but anchor the search on **this specific rule**, not a
@@ -383,8 +536,9 @@ invent different section names for this category — same shape, different conte
   "usable, just maybe stale") — it means no content at all; escalate to `pega_get_rule_xml`
   unconditionally, not only when stakes are high.
 - Don't silently give up on a `pega_get_rule_xml` result that overflowed to a saved file — it can be
-  one unbroken line that `Read`'s line-based `limit` doesn't help with either; use targeted `Grep`
-  patterns, and say plainly if only part of it was readable within budget.
+  one unbroken line that `Read`'s line-based `limit` doesn't help with either; use the windowed
+  Python `re.finditer` slicing technique (§2 Step 3), not `Grep`, and say plainly if only part of it
+  was readable within budget.
 - Don't skip the KB gate (step 1) to "be thorough" — it's there specifically to avoid re-diagnosing
   what's already solved, same reasoning as `diagnosis_agent.py`'s own Tier-0 gate.
 - Don't report Business Impact from the rule/class name alone when no Feature node's closure actually
@@ -394,3 +548,28 @@ invent different section names for this category — same shape, different conte
 - Don't assume the environment for `pega_log_analyzer`/`get_rule_summaries`/etc. from the error text
   alone — confirm it (§1) before the first tool call, since a wrong environment here doesn't error,
   it silently queries a different live Pega instance.
+- Don't use `neo4j_query`'s "explicit environment filter required" error message's own suggested
+  value verbatim — confirmed live, it can be a shortened/aliased form that silently filters to zero
+  results. Use the exact `r.environment` string already confirmed from the rule's own data instead.
+- Don't hash-decode a `logger_name` that's already readable — check for the
+  `Rule_Obj_Activity.<Name>.<Class>.<Method>` dotted form first and parse it directly; only fall back
+  to `pega_log_analyzer` for the genuinely-obfuscated `com.pegarules.generated.*` form.
+- Don't reach for `pega_get_rule_version` first when a rule's exact name is known but its type isn't —
+  try the free `neo4j_query` name search, then `pega_get_all_content` (type-agnostic full-text),
+  before guessing at `rule_type` values.
+- Don't treat a `pega_get_rule_version` miss across one or two `rule_type` guesses as proof the rule
+  doesn't exist — it only means you haven't guessed the right type yet; try a few plausible variants.
+- Don't use `Grep` to search an overflowed `pega_get_rule_xml`/`opensearch_search_index` result saved
+  to a file — it hides long single-line matches behind `[Omitted long matching line]`. Use windowed
+  Python `re.finditer` slicing instead (§2 Step 3).
+- Don't parse a `RuleSequence` group's `group_signature` by hand — read its pre-decoded `rules[]`
+  field directly (§2 Step 1.5).
+- Don't force a `CSP Violation` or `Logger` group through the standard rule-resolution steps — route
+  by `group_type` first (§2 Step 1.5); `CSP Violation` needs no rule lookup at all, and `Logger` may
+  have nothing but a logger name and thread/correlation fields to work with.
+- Don't stop at one empty `stack_trace` sample and conclude no trace exists for a failure — check the
+  group's other `raw_log_ids` too, and consider widening the caller aggregation (§2 Step 4.5) before
+  treating the trace as genuinely absent everywhere.
+- Don't treat a shared `CorrelationId`/`RequestorId` across groups as proof they're "the same
+  incident" — a pooled batch worker processes many unrelated case partitions over its lifetime; it's
+  a lead worth checking, not confirmation, unless the actual call chain is traced.
